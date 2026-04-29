@@ -1,0 +1,151 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">聊天室客户端控制台</title>
+    <style>
+        body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #0c1228; color: #ecf1ff; }
+        .wrap { width: min(1100px, 96vw); margin: 20px auto; }
+        .panel { background: #151d3f; border: 1px solid #2b376f; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+        input { background: #0e1533; color: #fff; border: 1px solid #33448a; border-radius: 8px; padding: 8px; margin-right: 8px; }
+        button { border: none; color: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; margin-right: 8px; }
+        .start { background: #2f86ff; }
+        .stop { background: #ff617d; }
+        .send { background: #7f7aff; }
+        .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        .metric { background: #0f1738; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
+        .metric-title { color: #9db2f0; font-size: 12px; }
+        .metric-value { font-size: 24px; font-weight: 700; }
+        .chat-box { height: 360px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
+        .bubble { max-width: 80%; margin: 6px 0; padding: 8px 10px; border-radius: 10px; font-size: 13px; }
+        .bubble.self { margin-left: auto; background: #3653b8; }
+        .bubble.remote { background: #26335f; }
+        .bubble.system { background: #3b355f; color: #d8ccff; }
+        .logs { height: 160px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; margin-top: 10px; }
+        .log { font-family: Consolas, monospace; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #27356e; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="panel">
+        <h2 th:text="${title}" style="margin-top:0;">聊天室客户端控制台</h2>
+        <a href="/" target="_blank" rel="noopener noreferrer" style="color:#84b5ff;">返回监控主页</a>
+        <div style="margin-top:10px;">
+            <input id="ip" value="127.0.0.1" placeholder="IP">
+            <input id="port" type="number" value="9000" placeholder="端口">
+            <input id="username" value="" placeholder="用户名（如 alice）">
+            <input id="role" value="user" placeholder="角色（如 tester）">
+            <button class="start" onclick="startClient()">启动客户端</button>
+            <button class="stop" onclick="stopClient()">停止客户端</button>
+            <button class="start" onclick="openNewClientWindow()">新建客户端窗口</button>
+            <span id="status" style="margin-left:8px;color:#96d7a9;">状态未知</span>
+        </div>
+        <div style="margin-top:10px;">
+            <input id="message" style="width:420px;" placeholder="输入聊天消息">
+            <button class="send" onclick="sendMessage()">发送</button>
+        </div>
+        <div class="metrics">
+            <div class="metric"><div class="metric-title">已发送</div><div id="sentMessages" class="metric-value">0</div></div>
+            <div class="metric"><div class="metric-title">已接收</div><div id="receivedMessages" class="metric-value">0</div></div>
+        </div>
+    </div>
+    <div class="panel">
+        <h3 style="margin-top:0;">聊天对话</h3>
+        <div id="chatBox" class="chat-box"></div>
+        <h3>客户端实时日志</h3>
+        <div id="logs" class="logs"></div>
+    </div>
+</div>
+<script>
+    const clientId = "client-" + crypto.randomUUID();
+    let currentUsername = "匿名用户";
+
+    function escapeHtml(s) {
+        return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    }
+
+    function render(data) {
+        const status = document.getElementById("status");
+        status.innerText = data.running
+            ? `运行中 PID=${data.pid} 用户=${data.username || "匿名用户"} 角色=${data.role || "user"}`
+            : "未运行";
+        status.style.color = data.running ? "#4fdf9f" : "#ff8b9f";
+
+        currentUsername = data.username || currentUsername;
+        document.getElementById("sentMessages").innerText = data.sentMessages ?? 0;
+        document.getElementById("receivedMessages").innerText = data.receivedMessages ?? 0;
+
+        const logs = data.logs || [];
+        document.getElementById("chatBox").innerHTML = logs
+            .filter(v => v.source === "SEND" || v.source === "CLIENT" || v.source === "SYSTEM")
+            .slice(0, 80)
+            .reverse()
+            .map(v => {
+                const text = escapeHtml(v.text || "");
+                let cls = "system";
+                if (v.source === "SEND") cls = "self";
+                else if (v.source === "CLIENT") cls = "remote";
+                const label = v.source === "SEND" ? `[${escapeHtml(currentUsername)}]` : "";
+                return `<div class="bubble ${cls}">${label} ${text}</div>`;
+            }).join("");
+
+        document.getElementById("logs").innerHTML = logs.map(v =>
+            `<div class="log">[${new Date(v.time).toLocaleTimeString()}] [${v.source}] ${v.text}</div>`
+        ).join("");
+    }
+
+    async function startClient() {
+        const username = document.getElementById("username").value.trim();
+        const role = document.getElementById("role").value.trim() || "user";
+        await fetch("/api/runtime/client/start", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                clientId,
+                ip: document.getElementById("ip").value,
+                port: Number(document.getElementById("port").value),
+                username,
+                role
+            })
+        });
+        await fetchStatus();
+    }
+
+    async function stopClient() {
+        await fetch("/api/runtime/client/stop", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({clientId})
+        });
+        await fetchStatus();
+    }
+
+    async function sendMessage() {
+        const message = document.getElementById("message").value;
+        if (!message) return;
+        await fetch("/api/runtime/client/send", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({clientId, message})
+        });
+        document.getElementById("message").value = "";
+        await fetchStatus();
+    }
+
+    async function fetchStatus() {
+        const resp = await fetch(`/api/runtime/client/status?clientId=${encodeURIComponent(clientId)}`);
+        const data = await resp.json();
+        render(data);
+    }
+
+    function openNewClientWindow() {
+        const url = `/client?t=${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    setInterval(fetchStatus, 1000);
+    fetchStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+﻿# Build artifacts
+/cmake-build-debug/
+/cmake-build-release/
+/chat-ui/target/
+
+# IDE
+/.idea/
+/.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.bak

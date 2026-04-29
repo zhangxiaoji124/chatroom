@@ -1,0 +1,11 @@
+server:
+  port: 8088
+
+spring:
+  thymeleaf:
+    cache: false
+
+chat:
+  runtime:
+    workspaceRoot: ..
+    exePath: ../cmake-build-release/Release/untitled18.exe
