@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title}">聊天室压测可视化监控台</title>
+    <title th:text="${title}">百万级数据库压测监控台</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <style>
         :root {
@@ -25,182 +25,247 @@
             color: var(--text);
             background: radial-gradient(circle at 15% 0%, #21356e 0%, var(--bg) 52%);
         }
-        .layout {
-            width: min(1300px, 96vw);
-            margin: 24px auto;
-            display: grid;
-            grid-template-columns: 1.35fr 1fr;
-            gap: 16px;
-        }
+        .wrap { width: min(1400px, 96vw); margin: 20px auto 28px; }
         .panel {
             background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 18px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+            margin-bottom: 16px;
         }
         h1 { margin: 0; font-size: 28px; }
         .sub { margin-top: 8px; color: var(--sub); font-size: 14px; }
-        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
         .status { font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); }
         .status.running { color: var(--ok); border-color: rgba(62,212,158,0.65); background: rgba(62,212,158,0.15); }
-        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .metric-card { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
         .metric-title { color: var(--sub); font-size: 12px; margin-bottom: 6px; }
-        .metric-value { font-size: 24px; font-weight: 700; }
-        .controls { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .controls input { width: 100%; background: #0c1330; border: 1px solid var(--line); border-radius: 8px; color: var(--text); padding: 8px; }
+        .metric-value { font-size: 22px; font-weight: 700; }
+        .controls { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .controls label { font-size: 12px; color: var(--sub); display: block; }
+        .controls input, .controls select {
+            width: 100%; margin-top: 6px;
+            background: #0c1330; border: 1px solid var(--line);
+            border-radius: 8px; color: var(--text); padding: 8px;
+        }
         .buttons { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         button { border: none; border-radius: 9px; padding: 9px 14px; color: #fff; cursor: pointer; }
         .start { background: linear-gradient(135deg, #1e9bff, #3878ff); }
         .stop { background: linear-gradient(135deg, #ff7a7a, #f04f6f); }
-        .event-btn { background: linear-gradient(135deg, #8f7cff, #5f63ff); }
-        #chart { margin-top: 14px; height: 340px; width: 100%; }
-        .events { height: 650px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(11, 17, 40, 0.65); padding: 10px; }
-        .event { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 10px 4px; font-size: 13px; }
+        .progress-wrap { margin-top: 12px; height: 10px; background: #0c1330; border-radius: 999px; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #36d39a, #56a8ff); transition: width 0.35s ease; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .chart-box { height: 360px; width: 100%; }
+        .events { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(11, 17, 40, 0.65); padding: 10px; }
+        .event { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 8px 4px; font-size: 13px; }
         .event:last-child { border-bottom: none; }
         .event .time { color: var(--sub); font-family: Consolas, monospace; }
-        .event .type { font-weight: 600; margin-left: 8px; }
-        .event.SEND .type, .event.RECEIVE .type { color: var(--ok); }
-        .event.SEND_FAIL .type, .event.FAIL .type { color: var(--danger); }
-        .event.SYSTEM .type, .event.START .type, .event.STOP .type { color: var(--warn); }
+        .event .type { font-weight: 600; margin-left: 8px; color: var(--warn); }
         @media (max-width: 980px) {
-            .layout { grid-template-columns: 1fr; }
-            .metrics { grid-template-columns: repeat(2, 1fr); }
+            .metrics, .controls { grid-template-columns: repeat(2, 1fr); }
+            .charts { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-<div class="layout">
+<div class="wrap">
     <section class="panel">
         <div class="top">
             <div>
-                <h1 th:text="${title}">聊天室压测可视化监控台</h1>
-                <div class="sub">实时监控聊天收发量、连接数、吞吐及异常，支持一键启动压测。</div>
+                <h1>百万级数据库压测 · 实时可视化</h1>
+                <div class="sub">分布式分片写入（H2 内存集群模拟）+ 批量事务，SSE 每 500ms 推送真实吞吐与延迟曲线。</div>
             </div>
             <div id="statusTag" class="status">空闲中</div>
         </div>
 
         <div class="metrics">
-            <div class="metric-card"><div class="metric-title">发送总数</div><div class="metric-value" id="sent">0</div></div>
-            <div class="metric-card"><div class="metric-title">接收总数</div><div class="metric-value" id="received">0</div></div>
-            <div class="metric-card"><div class="metric-title">失败总数</div><div class="metric-value" id="failed">0</div></div>
-            <div class="metric-card"><div class="metric-title">在线用户</div><div class="metric-value" id="users">0</div></div>
-            <div class="metric-card"><div class="metric-title">活跃连接</div><div class="metric-value" id="connections">0</div></div>
-            <div class="metric-card"><div class="metric-title">吞吐(msg/s)</div><div class="metric-value" id="throughput">0</div></div>
+            <div class="metric-card"><div class="metric-title">已发送消息</div><div class="metric-value" id="sent">0</div></div>
+            <div class="metric-card"><div class="metric-title">DB 已写入</div><div class="metric-value" id="dbWrites">0</div></div>
+            <div class="metric-card"><div class="metric-title">实时吞吐 (条/秒)</div><div class="metric-value" id="throughput">0</div></div>
+            <div class="metric-card"><div class="metric-title">批次平均耗时 (ms)</div><div class="metric-value" id="latency">0</div></div>
+            <div class="metric-card"><div class="metric-title">目标总量</div><div class="metric-value" id="target">1,000,000</div></div>
+            <div class="metric-card"><div class="metric-title">完成进度</div><div class="metric-value" id="progress">0%</div></div>
+            <div class="metric-card"><div class="metric-title">分片节点数</div><div class="metric-value" id="shards">8</div></div>
+            <div class="metric-card"><div class="metric-title">DB 引擎</div><div class="metric-value" id="dbMode">H2</div></div>
         </div>
+
+        <div class="progress-wrap"><div id="progressBar" class="progress-bar"></div></div>
 
         <div class="controls">
-            <label>虚拟用户数<input id="virtualUsers" type="number" min="1" value="80"></label>
-            <label>消息速率/s <input id="msgRate" type="number" min="1" value="160"></label>
-            <label>时长(秒) <input id="duration" type="number" min="5" value="60"></label>
+            <label>目标消息数（百万压测）
+                <select id="totalMessages">
+                    <option value="100000">10 万</option>
+                    <option value="500000">50 万</option>
+                    <option value="1000000" selected>100 万</option>
+                    <option value="2000000">200 万</option>
+                </select>
+            </label>
+            <label>分布式写入分片
+                <input id="writerShards" type="number" min="1" max="32" value="8">
+            </label>
+            <label>批量大小 (条/事务)
+                <input id="batchSize" type="number" min="100" max="10000" value="2000">
+            </label>
+            <label>数据库引擎
+                <select id="dbEngine" disabled title="在 application.yml 中配置 chat.benchmark.database">
+                    <option value="h2" selected>H2 内存分片（高性能）</option>
+                    <option value="sqlite">SQLite 分片文件</option>
+                </select>
+            </label>
         </div>
         <div class="buttons">
-            <button class="start" onclick="startLoadTest()">启动压测</button>
+            <button class="start" onclick="startLoadTest()">启动百万压测</button>
             <button class="stop" onclick="stopLoadTest()">停止压测</button>
-            <button class="event-btn" onclick="mockExternalEvent()">模拟外部事件</button>
-            <a href="/server" target="_blank" rel="noopener noreferrer" style="margin-left:10px;color:#9fc2ff;">进入服务端页面</a>
-            <a href="/client" target="_blank" rel="noopener noreferrer" style="margin-left:10px;color:#9fc2ff;">进入客户端页面</a>
+            <a href="/server" target="_blank" rel="noopener noreferrer" style="color:#9fc2ff;">服务端控制台</a>
+            <a href="/client" target="_blank" rel="noopener noreferrer" style="color:#9fc2ff;">客户端控制台</a>
         </div>
+    </section>
 
-        <div id="chart"></div>
+    <section class="panel charts">
+        <div>
+            <h3 style="margin:0 0 8px;">吞吐 vs 时间（动态折线）</h3>
+            <div id="throughputChart" class="chart-box"></div>
+        </div>
+        <div>
+            <h3 style="margin:0 0 8px;">发送耗时 vs 已发送消息数（动态折线）</h3>
+            <div id="latencyChart" class="chart-box"></div>
+        </div>
     </section>
 
     <section class="panel">
-        <h2 style="margin-top:0;">实时事件流</h2>
-        <div class="sub" style="margin-bottom:10px;">可用于观察聊天消息发送、接收与失败波动。</div>
+        <h3 style="margin-top:0;">实时事件流</h3>
         <div id="events" class="events"></div>
     </section>
 </div>
 
 <script>
-    const chart = echarts.init(document.getElementById("chart"));
-    chart.setOption({
-        backgroundColor: "transparent",
+    const throughputChart = echarts.init(document.getElementById("throughputChart"));
+    const latencyChart = echarts.init(document.getElementById("latencyChart"));
+
+    const chartTheme = {
+        textStyle: { color: "#d5deff" },
+        grid: { left: 48, right: 24, top: 36, bottom: 36 },
         tooltip: { trigger: "axis" },
-        legend: { data: ["发送", "接收", "失败"], textStyle: { color: "#d5deff" } },
-        grid: { left: 40, right: 20, top: 40, bottom: 30 },
-        xAxis: { type: "category", data: [], axisLine: { lineStyle: { color: "#6f7ab0" } } },
-        yAxis: { type: "value", axisLine: { lineStyle: { color: "#6f7ab0" } }, splitLine: { lineStyle: { color: "rgba(255,255,255,.08)" } } },
+        xAxis: { axisLine: { lineStyle: { color: "#6f7ab0" } }, axisLabel: { color: "#9db2f0" } },
+        yAxis: { axisLine: { lineStyle: { color: "#6f7ab0" } }, splitLine: { lineStyle: { color: "rgba(255,255,255,.08)" } }, axisLabel: { color: "#9db2f0" } }
+    };
+
+    throughputChart.setOption({
+        ...chartTheme,
+        legend: { data: ["吞吐 (条/秒)", "DB写入 (条/秒)"], textStyle: { color: "#d5deff" } },
+        xAxis: { type: "category", data: [] },
+        yAxis: { type: "value", name: "条/秒" },
         series: [
-            { name: "发送", type: "line", smooth: true, data: [], lineStyle: { color: "#5bb0ff" }, showSymbol: false },
-            { name: "接收", type: "line", smooth: true, data: [], lineStyle: { color: "#36d39a" }, showSymbol: false },
-            { name: "失败", type: "line", smooth: true, data: [], lineStyle: { color: "#ff6f96" }, showSymbol: false }
-        ]
+            { name: "吞吐 (条/秒)", type: "line", smooth: true, showSymbol: false, data: [], lineStyle: { width: 2, color: "#5bb0ff" }, areaStyle: { color: "rgba(91,176,255,0.12)" } },
+            { name: "DB写入 (条/秒)", type: "line", smooth: true, showSymbol: false, data: [], lineStyle: { width: 2, color: "#36d39a" } }
+        ],
+        animationDuration: 300,
+        animationDurationUpdate: 300
     });
+
+    latencyChart.setOption({
+        ...chartTheme,
+        legend: { data: ["批次平均耗时 (ms)"], textStyle: { color: "#d5deff" } },
+        xAxis: { type: "value", name: "已发送消息数", nameLocation: "middle", nameGap: 28 },
+        yAxis: { type: "value", name: "耗时 (ms)" },
+        series: [
+            { name: "批次平均耗时 (ms)", type: "line", smooth: true, showSymbol: false, data: [], lineStyle: { width: 2, color: "#ffcc66" }, areaStyle: { color: "rgba(255,204,102,0.1)" } }
+        ],
+        animationDuration: 300,
+        animationDurationUpdate: 300
+    });
+
+    function fmt(n) {
+        return Number(n || 0).toLocaleString("zh-CN");
+    }
 
     function setText(id, value) {
         document.getElementById(id).innerText = value;
     }
 
     function render(snapshot) {
-        setText("sent", snapshot.sent);
-        setText("received", snapshot.received);
-        setText("failed", snapshot.failed);
-        setText("users", snapshot.onlineUsers);
-        setText("connections", snapshot.activeConnections);
-        setText("throughput", snapshot.throughput);
+        setText("sent", fmt(snapshot.sent));
+        setText("dbWrites", fmt(snapshot.dbWrites ?? snapshot.received));
+        setText("throughput", fmt(snapshot.throughput));
+        setText("latency", snapshot.avgLatencyMs ?? 0);
+        setText("target", fmt(snapshot.targetTotalMessages ?? 1000000));
+        setText("progress", (snapshot.progressPercent ?? 0) + "%");
+        setText("shards", snapshot.distributedShards ?? snapshot.writerShards ?? 8);
+        setText("dbMode", (snapshot.databaseMode || "h2").toUpperCase());
+
+        document.getElementById("progressBar").style.width = Math.min(100, snapshot.progressPercent ?? 0) + "%";
 
         const statusTag = document.getElementById("statusTag");
         if (snapshot.running) {
-            statusTag.innerText = "压测运行中";
+            statusTag.innerText = "压测运行中 · " + (snapshot.elapsedSeconds ?? 0) + "s";
             statusTag.classList.add("running");
+        } else if ((snapshot.progressPercent ?? 0) >= 100) {
+            statusTag.innerText = "压测已完成";
+            statusTag.classList.remove("running");
         } else {
             statusTag.innerText = "空闲中";
             statusTag.classList.remove("running");
         }
 
         const timeline = snapshot.timeline || [];
-        const x = timeline.map(v => new Date(v.timestamp).toLocaleTimeString());
-        chart.setOption({
-            xAxis: { data: x },
+        const times = timeline.map(p => {
+            const sec = p.elapsedSeconds ?? 0;
+            return sec + "s";
+        });
+        throughputChart.setOption({
+            xAxis: { data: times },
             series: [
-                { data: timeline.map(v => v.sent) },
-                { data: timeline.map(v => v.received) },
-                { data: timeline.map(v => v.failed) }
+                { data: timeline.map(p => p.throughput ?? 0) },
+                { data: timeline.map(p => p.dbThroughput ?? p.throughput ?? 0) }
             ]
+        });
+
+        const latencySeries = snapshot.latencySeries || [];
+        latencyChart.setOption({
+            series: [{
+                data: latencySeries.map(p => [p.messageIndex ?? 0, p.latencyMs ?? 0])
+            }]
         });
 
         const eventsBox = document.getElementById("events");
         const events = snapshot.recentEvents || [];
-        eventsBox.innerHTML = events.slice(0, 80).map(e =>
-            `<div class="event ${e.type}"><span class="time">${new Date(e.time).toLocaleTimeString()}</span><span class="type">${e.type}</span><div>${e.actor} - ${e.detail}</div></div>`
+        eventsBox.innerHTML = events.slice(0, 40).map(e =>
+            `<div class="event"><span class="time">${new Date(e.time).toLocaleTimeString()}</span><span class="type">${e.type}</span><div>${e.actor} - ${e.detail}</div></div>`
         ).join("");
     }
 
     async function startLoadTest() {
-        await fetch("/api/loadtest/start", {
+        const body = {
+            totalMessages: Number(document.getElementById("totalMessages").value),
+            writerShards: Number(document.getElementById("writerShards").value),
+            batchSize: Number(document.getElementById("batchSize").value)
+        };
+        const resp = await fetch("/api/loadtest/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                virtualUsers: Number(document.getElementById("virtualUsers").value),
-                msgRatePerSecond: Number(document.getElementById("msgRate").value),
-                durationSeconds: Number(document.getElementById("duration").value)
-            })
+            body: JSON.stringify(body)
         });
+        if (!resp.ok) {
+            alert("启动失败: " + await resp.text());
+        }
     }
 
     async function stopLoadTest() {
         await fetch("/api/loadtest/stop", { method: "POST" });
     }
 
-    async function mockExternalEvent() {
-        const dirs = ["SEND", "RECEIVE", "FAIL"];
-        const direction = dirs[Math.floor(Math.random() * dirs.length)];
-        await fetch("/api/chat/event", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ direction, message: "来自C++侧的模拟上报事件" })
-        });
-    }
-
     const es = new EventSource("/api/stream");
-    es.addEventListener("metrics", (event) => {
-        render(JSON.parse(event.data));
-    });
-    es.onerror = () => console.warn("SSE disconnected");
+    es.addEventListener("metrics", (event) => render(JSON.parse(event.data)));
+    es.onerror = () => console.warn("SSE disconnected, retrying...");
 
-    window.addEventListener("resize", () => chart.resize());
+    fetch("/api/metrics").then(r => r.json()).then(render);
+
+    window.addEventListener("resize", () => {
+        throughputChart.resize();
+        latencyChart.resize();
+    });
 </script>
 </body>
 </html>

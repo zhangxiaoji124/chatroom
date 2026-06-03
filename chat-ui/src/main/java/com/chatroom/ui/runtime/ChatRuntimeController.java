@@ -5,7 +5,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -46,6 +49,11 @@ public class ChatRuntimeController {
         return runtimeService.clientStatus(clientId);
     }
 
+    @GetMapping("/users")
+    public Map<String, Object> users() {
+        return runtimeService.userPresenceSnapshot();
+    }
+
     @PostMapping("/client/start")
     public Map<String, Object> startClient(@RequestBody Map<String, Object> body) {
         String clientId = String.valueOf(body.getOrDefault("clientId", "default"));
@@ -66,6 +74,14 @@ public class ChatRuntimeController {
     public Map<String, Object> sendClient(@RequestBody Map<String, String> body) {
         String clientId = body.getOrDefault("clientId", "default");
         return runtimeService.sendClientMessage(clientId, body.getOrDefault("message", ""));
+    }
+
+    @PostMapping(value = "/client/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> uploadClientMedia(
+        @RequestParam String clientId,
+        @RequestPart("file") MultipartFile file
+    ) {
+        return runtimeService.uploadAndSendMedia(clientId, file);
     }
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

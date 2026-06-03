@@ -3,113 +3,652 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title}">聊天室客户端控制台</title>
-    <style>
-        body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #0c1228; color: #ecf1ff; }
-        .wrap { width: min(1100px, 96vw); margin: 20px auto; }
-        .panel { background: #151d3f; border: 1px solid #2b376f; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-        input { background: #0e1533; color: #fff; border: 1px solid #33448a; border-radius: 8px; padding: 8px; margin-right: 8px; }
-        button { border: none; color: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; margin-right: 8px; }
-        .start { background: #2f86ff; }
-        .stop { background: #ff617d; }
-        .send { background: #7f7aff; }
-        .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-        .metric { background: #0f1738; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
-        .metric-title { color: #9db2f0; font-size: 12px; }
-        .metric-value { font-size: 24px; font-weight: 700; }
-        .chat-box { height: 360px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
-        .bubble { max-width: 80%; margin: 6px 0; padding: 8px 10px; border-radius: 10px; font-size: 13px; }
-        .bubble.self { margin-left: auto; background: #3653b8; }
-        .bubble.remote { background: #26335f; }
-        .bubble.system { background: #3b355f; color: #d8ccff; }
-        .logs { height: 160px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; margin-top: 10px; }
-        .log { font-family: Consolas, monospace; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #27356e; }
+    <title th:text="${title}">聊天室</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <style th:inline="text">
+        :root {
+            --bg: #0a0e1a;
+            --surface: #12182b;
+            --surface-2: #1a2340;
+            --border: rgba(255,255,255,0.08);
+            --text: #eef2ff;
+            --muted: #8b9cd4;
+            --accent: #5b8def;
+            --accent-2: #7c5cff;
+            --self: linear-gradient(135deg, #3d6cf5 0%, #5b4fd9 100%);
+            --other: #232d4d;
+            --system: rgba(124, 92, 255, 0.2);
+            --ok: #3ed49e;
+            --danger: #ff6b8a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "DM Sans", "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(91, 141, 239, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(124, 92, 255, 0.1), transparent);
+        }
+        .app {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        @@media (max-width: 860px) {
+            .app { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+        }
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #fff, #a8b8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .brand small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); -webkit-text-fill-color: var(--muted); margin-top: 4px; }
+        .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .field input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .field input:focus { border-color: var(--accent); }
+        .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        button, .btn-link {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+            font-family: inherit;
+        }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: var(--self); color: #fff; }
+        .btn-danger { background: rgba(255,107,138,0.2); color: var(--danger); border: 1px solid rgba(255,107,138,0.4); }
+        .btn-ghost { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+        .btn-link { background: transparent; color: var(--accent); text-decoration: none; display: inline-block; padding: 6px 0; }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+        }
+        .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+        .status-pill.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .stat { background: var(--surface-2); border-radius: 10px; padding: 10px; border: 1px solid var(--border); }
+        .stat span { font-size: 11px; color: var(--muted); }
+        .stat strong { display: block; font-size: 20px; margin-top: 4px; }
+
+        .chat-main {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: var(--surface);
+        }
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header h2 { font-size: 1.1rem; font-weight: 600; }
+        .chat-header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+        .messages::-webkit-scrollbar { width: 6px; }
+        .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .msg-row { display: flex; gap: 10px; max-width: 85%; }
+        .msg-row.is-new { animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .msg-row.self { margin-left: auto; flex-direction: row-reverse; }
+        .msg-row.system { max-width: 100%; justify-content: center; }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700; color: #fff;
+        }
+        .msg-row.self .avatar { background: var(--self); }
+        .msg-row.other .avatar { background: var(--other); border: 1px solid var(--border); }
+        .bubble-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .msg-row.self .bubble-wrap { align-items: flex-end; }
+        .sender-name { font-size: 11px; color: var(--muted); padding: 0 4px; }
+        .bubble {
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .msg-row.self .bubble { background: var(--self); border-bottom-right-radius: 4px; }
+        .msg-row.other .bubble { background: var(--other); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .msg-row.system .bubble {
+            background: var(--system);
+            color: #c4b8ff;
+            font-size: 12px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            box-shadow: none;
+        }
+        .bubble img {
+            max-width: min(320px, 70vw);
+            max-height: 240px;
+            border-radius: 12px;
+            display: block;
+            margin-top: 4px;
+            cursor: pointer;
+        }
+        .file-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            margin-top: 4px;
+            min-width: 200px;
+        }
+        .file-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(91,141,239,0.25);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+        .file-meta { flex: 1; min-width: 0; }
+        .file-meta .name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta .size { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .file-card a {
+            color: var(--accent);
+            font-size: 12px;
+            text-decoration: none;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .msg-time { font-size: 10px; color: var(--muted); padding: 0 4px; }
+
+        .composer {
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--border);
+            background: rgba(10, 14, 26, 0.6);
+        }
+        .preview-bar {
+            display: none;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: var(--surface-2);
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+            align-items: center;
+            gap: 12px;
+        }
+        .preview-bar.show { display: flex; }
+        .preview-bar img { max-height: 64px; border-radius: 8px; }
+        .preview-bar .info { flex: 1; font-size: 13px; }
+        .preview-bar button { background: transparent; color: var(--muted); border: none; cursor: pointer; font-size: 18px; }
+        .composer-inner {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 8px 12px;
+        }
+        .composer-inner:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,141,239,0.15); }
+        .tool-btn {
+            width: 40px; height: 40px;
+            border: none; background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            border-radius: 10px;
+            font-size: 20px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        #messageInput {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            min-height: 24px;
+            padding: 8px 0;
+            outline: none;
+        }
+        .send-btn {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: var(--self);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            text-align: center;
+            padding: 40px;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+        #fileInput, #imageInput { display: none; }
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .user-panels { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .user-panel {
+            flex: 1; min-height: 0; display: flex; flex-direction: column;
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden;
+        }
+        .user-panel-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--muted); border-bottom: 1px solid var(--border);
+        }
+        .user-panel-head .count {
+            font-size: 10px; padding: 2px 8px; border-radius: 999px;
+            background: rgba(255,255,255,0.06);
+        }
+        .user-panel-head.online .count { color: var(--ok); }
+        .user-panel-head.offline .count { color: var(--muted); }
+        .user-list { flex: 1; overflow-y: auto; padding: 6px; }
+        .user-list::-webkit-scrollbar { width: 4px; }
+        .user-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px; border-radius: 8px; font-size: 13px;
+            cursor: default; transition: background 0.15s;
+        }
+        .user-item:hover { background: rgba(255,255,255,0.04); }
+        .user-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .user-item.online .dot { background: var(--ok); box-shadow: 0 0 6px rgba(62,212,158,0.5); }
+        .user-item.offline .dot { background: #5a6478; }
+        .user-item .meta { flex: 1; min-width: 0; }
+        .user-item .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-item .sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+        .user-empty { padding: 12px 8px; font-size: 12px; color: var(--muted); text-align: center; }
+        .sidebar { overflow: hidden; }
     </style>
 </head>
 <body>
-<div class="wrap">
-    <div class="panel">
-        <h2 th:text="${title}" style="margin-top:0;">聊天室客户端控制台</h2>
-        <a href="/" target="_blank" rel="noopener noreferrer" style="color:#84b5ff;">返回监控主页</a>
-        <div style="margin-top:10px;">
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">
+            ChatRoom
+            <small>连接 C++ 服务端 · 支持图文文件</small>
+        </div>
+        <div class="field">
+            <label>服务器</label>
             <input id="ip" value="127.0.0.1" placeholder="IP">
-            <input id="port" type="number" value="9000" placeholder="端口">
-            <input id="username" value="" placeholder="用户名（如 alice）">
-            <input id="role" value="user" placeholder="角色（如 tester）">
-            <button class="start" onclick="startClient()">启动客户端</button>
-            <button class="stop" onclick="stopClient()">停止客户端</button>
-            <button class="start" onclick="openNewClientWindow()">新建客户端窗口</button>
-            <span id="status" style="margin-left:8px;color:#96d7a9;">状态未知</span>
         </div>
-        <div style="margin-top:10px;">
-            <input id="message" style="width:420px;" placeholder="输入聊天消息">
-            <button class="send" onclick="sendMessage()">发送</button>
+        <div class="field">
+            <label>端口</label>
+            <input id="port" type="number" value="9000">
         </div>
-        <div class="metrics">
-            <div class="metric"><div class="metric-title">已发送</div><div id="sentMessages" class="metric-value">0</div></div>
-            <div class="metric"><div class="metric-title">已接收</div><div id="receivedMessages" class="metric-value">0</div></div>
+        <div class="field">
+            <label>昵称</label>
+            <input id="username" placeholder="例如 Alice">
         </div>
-    </div>
-    <div class="panel">
-        <h3 style="margin-top:0;">聊天对话</h3>
-        <div id="chatBox" class="chat-box"></div>
-        <h3>客户端实时日志</h3>
-        <div id="logs" class="logs"></div>
-    </div>
+        <div id="statusPill" class="status-pill">
+            <span class="dot"></span>
+            <span id="statusText">未连接</span>
+        </div>
+        <div class="btn-row">
+            <button class="btn-primary" onclick="startClient()">连接</button>
+            <button class="btn-danger" onclick="stopClient()">断开</button>
+        </div>
+        <button class="btn-ghost" style="width:100%;" onclick="openNewClientWindow()">＋ 新窗口</button>
+        <div class="stats">
+            <div class="stat"><span>已发送</span><strong id="sentMessages">0</strong></div>
+            <div class="stat"><span>已接收</span><strong id="receivedMessages">0</strong></div>
+        </div>
+        <div class="user-panels">
+            <div class="user-panel">
+                <div class="user-panel-head online">
+                    <span>在线用户</span>
+                    <span class="count" id="onlineUserCount">0</span>
+                </div>
+                <div id="onlineUserList" class="user-list">
+                    <div class="user-empty">暂无在线用户</div>
+                </div>
+            </div>
+            <div class="user-panel">
+                <div class="user-panel-head offline">
+                    <span>离线用户</span>
+                    <span class="count" id="offlineUserCount">0</span>
+                </div>
+                <div id="offlineUserList" class="user-list">
+                    <div class="user-empty">暂无离线记录</div>
+                </div>
+            </div>
+        </div>
+        <a class="btn-link" href="/" target="_blank">← 返回监控台</a>
+    </aside>
+
+    <main class="chat-main">
+        <header class="chat-header">
+            <div>
+                <h2 id="roomTitle">大厅</h2>
+                <p id="roomSubtitle">启动连接后开始聊天</p>
+            </div>
+        </header>
+
+        <div id="messages" class="messages">
+            <div class="empty-state" id="emptyState">
+                <div class="icon">💬</div>
+                <p>连接服务器后，可发送文字、图片与文件</p>
+            </div>
+        </div>
+
+        <footer class="composer">
+            <div id="previewBar" class="preview-bar">
+                <img id="previewImg" alt="" style="display:none;">
+                <div class="info">
+                    <div id="previewName">文件</div>
+                    <div id="previewSize" style="font-size:11px;color:var(--muted);"></div>
+                </div>
+                <button type="button" onclick="clearPreview()" title="取消">×</button>
+            </div>
+            <div class="composer-inner">
+                <button type="button" class="tool-btn" onclick="pickImage()" title="发送图片">🖼</button>
+                <button type="button" class="tool-btn" onclick="pickFile()" title="发送文件">📎</button>
+                <textarea id="messageInput" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+                <button type="button" class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">➤</button>
+            </div>
+            <input type="file" id="imageInput" accept="image/*">
+            <input type="file" id="fileInput">
+        </footer>
+    </main>
 </div>
-<script>
-    const clientId = "client-" + crypto.randomUUID();
-    let currentUsername = "匿名用户";
+<div id="toast" class="toast"></div>
+
+<script th:inline="none">
+    const clientId = "client-" + (crypto.randomUUID ? crypto.randomUUID() : ("id-" + Date.now()));
+    let currentUsername = "我";
+    let isRunning = false;
+    let pendingFile = null;
+    let lastLogsSignature = "";
+    let lastRenderedCount = 0;
 
     function escapeHtml(s) {
-        return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+        return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;");
     }
 
-    function render(data) {
-        const status = document.getElementById("status");
-        status.innerText = data.running
-            ? `运行中 PID=${data.pid} 用户=${data.username || "匿名用户"} 角色=${data.role || "user"}`
-            : "未运行";
-        status.style.color = data.running ? "#4fdf9f" : "#ff8b9f";
+    function formatSize(bytes) {
+        const n = Number(bytes) || 0;
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+        return (n / (1024 * 1024)).toFixed(2) + " MB";
+    }
 
-        currentUsername = data.username || currentUsername;
+    function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2800);
+    }
+
+    function avatarLetter(name) {
+        const n = (name || "?").trim();
+        return n.charAt(0).toUpperCase();
+    }
+
+    function parseMediaFromText(text) {
+        const m = String(text).match(/@@MEDIA\|(image|file)\|([^|]+)\|([^|]+)\|(\d+)@@/);
+        if (!m) return null;
+        return { type: m[1], fileName: m[2], mediaUrl: m[3], fileSize: Number(m[4]) };
+    }
+
+    function stripMediaMarker(text) {
+        return String(text).replace(/@@MEDIA\|(?:image|file)\|[^|]+\|[^|]+\|\d+@@/g, "").trim();
+    }
+
+    function buildBubbleContent(entry) {
+        const msgType = entry.msgType || "text";
+        const mediaUrl = entry.mediaUrl || "";
+        const fileName = entry.fileName || "文件";
+        const fileSize = entry.fileSize || 0;
+        let text = entry.text || "";
+
+        const inline = parseMediaFromText(text);
+        const type = inline ? inline.type : msgType;
+        const url = inline ? inline.mediaUrl : mediaUrl;
+        const name = inline ? inline.fileName : fileName;
+        const size = inline ? inline.fileSize : fileSize;
+
+        if (type === "image" && url) {
+            const src = url.startsWith("http") ? url : url;
+            return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" loading="lazy" onclick="window.open('${escapeHtml(src)}','_blank')">`;
+        }
+        if (type === "file" && url) {
+            const src = url.startsWith("http") ? url : url;
+            return `<div class="file-card">
+                <div class="file-icon">📄</div>
+                <div class="file-meta">
+                    <div class="name">${escapeHtml(name)}</div>
+                    <div class="size">${formatSize(size)}</div>
+                </div>
+                <a href="${escapeHtml(src)}" download="${escapeHtml(name)}" target="_blank">下载</a>
+            </div>`;
+        }
+
+        const plain = stripMediaMarker(text);
+        if (!plain) return "<span style='color:var(--muted)'>[媒体消息]</span>";
+        return escapeHtml(plain);
+    }
+
+    function logsSignature(logs) {
+        const chatLogs = (logs || [])
+            .filter(v => v.source === "SEND" || v.source === "CLIENT" || v.source === "SYSTEM")
+            .slice(0, 120);
+        return chatLogs.map(v => (v.time || "") + "|" + (v.source || "") + "|" + (v.text || "")).join("\n");
+    }
+
+    function isNearBottom(el) {
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    }
+
+    function renderMessages(logs, force) {
+        const box = document.getElementById("messages");
+        const sig = logsSignature(logs);
+        if (!force && sig === lastLogsSignature) {
+            return;
+        }
+        const stickBottom = isNearBottom(box) || lastRenderedCount === 0;
+        lastLogsSignature = sig;
+
+        const chatLogs = (logs || [])
+            .filter(v => v.source === "SEND" || v.source === "CLIENT" || v.source === "SYSTEM")
+            .slice(0, 120)
+            .reverse();
+
+        if (chatLogs.length === 0) {
+            box.innerHTML = '<div class="empty-state" id="emptyState"><div class="icon">💬</div><p>连接服务器后，可发送文字、图片与文件</p></div>';
+            lastRenderedCount = 0;
+            return;
+        }
+
+        const prevCount = lastRenderedCount;
+        const newMsgCount = Math.max(0, chatLogs.length - prevCount);
+        lastRenderedCount = chatLogs.length;
+
+        const html = chatLogs.map((entry, idx) => {
+            const newCls = (newMsgCount > 0 && idx >= chatLogs.length - newMsgCount) ? " is-new" : "";
+            const isSelf = entry.source === "SEND";
+            const isSystem = (entry.msgType === "system") || (entry.text || "").includes("[system]") || (entry.text || "").includes("Welcome");
+            if (isSystem && !isSelf) {
+                return `<div class="msg-row system${newCls}">
+                    <div class="bubble">${buildBubbleContent(entry)}</div>
+                </div>`;
+            }
+
+            let sender = isSelf ? currentUsername : (entry.sender || "");
+            if (!sender && entry.text) {
+                const um = String(entry.text).match(/^\[([^\]]+)]/);
+                if (um) sender = um[1];
+            }
+            if (!sender) sender = isSelf ? currentUsername : "用户";
+
+            const rowClass = isSelf ? "self" : "other";
+            const time = new Date(entry.time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+
+            return `<div class="msg-row ${rowClass}${newCls}">
+                <div class="avatar">${escapeHtml(avatarLetter(sender))}</div>
+                <div class="bubble-wrap">
+                    ${!isSelf ? `<span class="sender-name">${escapeHtml(sender)}</span>` : ""}
+                    <div class="bubble">${buildBubbleContent(entry)}</div>
+                    <span class="msg-time">${time}</span>
+                </div>
+            </div>`;
+        }).join("");
+
+        box.innerHTML = html;
+        if (stickBottom) {
+            box.scrollTop = box.scrollHeight;
+        }
+    }
+
+    function formatTime(iso) {
+        if (!iso) return "";
+        try {
+            return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        } catch (e) {
+            return "";
+        }
+    }
+
+    function renderUserList(containerId, users, mode) {
+        const box = document.getElementById(containerId);
+        if (!users || users.length === 0) {
+            box.innerHTML = '<div class="user-empty">' + (mode === "online" ? "暂无在线用户" : "暂无离线记录") + '</div>';
+            return;
+        }
+        box.innerHTML = users.map(u => {
+            const idText = u.id > 0 ? ("#" + u.id) : "";
+            const sub = mode === "online"
+                ? ("最近活跃 " + (formatTime(u.lastSeen) || "刚刚"))
+                : ("离线于 " + (formatTime(u.offlineAt) || "未知"));
+            return '<div class="user-item ' + mode + '" title="' + escapeHtml(u.name) + '">' +
+                '<span class="dot"></span>' +
+                '<div class="meta">' +
+                '<div class="name">' + escapeHtml(u.name) + ' <span style="color:var(--muted);font-weight:400;">' + idText + '</span></div>' +
+                '<div class="sub">' + sub + '</div>' +
+                '</div></div>';
+        }).join("");
+    }
+
+    function renderUserPanels(data) {
+        const online = data.onlineUserList || [];
+        const offline = data.offlineUserList || [];
+        document.getElementById("onlineUserCount").textContent = online.length;
+        document.getElementById("offlineUserCount").textContent = offline.length;
+        renderUserList("onlineUserList", online, "online");
+        renderUserList("offlineUserList", offline, "offline");
+    }
+
+    function render(data, forceMessages) {
+        isRunning = !!data.running;
+        currentUsername = data.username || currentUsername || "我";
         document.getElementById("sentMessages").innerText = data.sentMessages ?? 0;
         document.getElementById("receivedMessages").innerText = data.receivedMessages ?? 0;
+        renderUserPanels(data);
 
-        const logs = data.logs || [];
-        document.getElementById("chatBox").innerHTML = logs
-            .filter(v => v.source === "SEND" || v.source === "CLIENT" || v.source === "SYSTEM")
-            .slice(0, 80)
-            .reverse()
-            .map(v => {
-                const text = escapeHtml(v.text || "");
-                let cls = "system";
-                if (v.source === "SEND") cls = "self";
-                else if (v.source === "CLIENT") cls = "remote";
-                const label = v.source === "SEND" ? `[${escapeHtml(currentUsername)}]` : "";
-                return `<div class="bubble ${cls}">${label} ${text}</div>`;
-            }).join("");
+        const pill = document.getElementById("statusPill");
+        const statusText = document.getElementById("statusText");
+        if (data.running) {
+            pill.classList.add("online");
+            statusText.textContent = "已连接 · " + currentUsername;
+            document.getElementById("roomTitle").textContent = "与大家的聊天";
+            document.getElementById("roomSubtitle").textContent = data.role ? ("角色: " + data.role) : "在线";
+        } else {
+            pill.classList.remove("online");
+            statusText.textContent = "未连接";
+            document.getElementById("roomSubtitle").textContent = "请先点击左侧「连接」";
+        }
 
-        document.getElementById("logs").innerHTML = logs.map(v =>
-            `<div class="log">[${new Date(v.time).toLocaleTimeString()}] [${v.source}] ${v.text}</div>`
-        ).join("");
+        document.getElementById("sendBtn").disabled = !data.running;
+        renderMessages(data.logs || [], !!forceMessages);
     }
 
     async function startClient() {
         const username = document.getElementById("username").value.trim();
-        const role = document.getElementById("role").value.trim() || "user";
-        await fetch("/api/runtime/client/start", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                clientId,
-                ip: document.getElementById("ip").value,
-                port: Number(document.getElementById("port").value),
-                username,
-                role
-            })
-        });
-        await fetchStatus();
+        try {
+            const resp = await fetch("/api/runtime/client/start", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    clientId,
+                    ip: document.getElementById("ip").value,
+                    port: Number(document.getElementById("port").value),
+                    username,
+                    role: "user"
+                })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            showToast("已连接服务器");
+            await fetchStatus(true);
+        } catch (e) {
+            showToast("连接失败: " + e.message);
+        }
     }
 
     async function stopClient() {
@@ -118,34 +657,129 @@
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({clientId})
         });
-        await fetchStatus();
+        showToast("已断开");
+        lastLogsSignature = "";
+        await fetchStatus(true);
     }
 
     async function sendMessage() {
-        const message = document.getElementById("message").value;
-        if (!message) return;
-        await fetch("/api/runtime/client/send", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({clientId, message})
-        });
-        document.getElementById("message").value = "";
-        await fetchStatus();
+        const input = document.getElementById("messageInput");
+        const text = input.value.trim();
+
+        if (pendingFile) {
+            await uploadFile(pendingFile);
+            clearPreview();
+            return;
+        }
+
+        if (!text) return;
+        if (!isRunning) {
+            showToast("请先连接服务器");
+            return;
+        }
+
+        try {
+            const resp = await fetch("/api/runtime/client/send", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({clientId, message: text})
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            input.value = "";
+            input.style.height = "auto";
+            await fetchStatus(true);
+        } catch (e) {
+            showToast("发送失败: " + e.message);
+        }
     }
 
-    async function fetchStatus() {
-        const resp = await fetch(`/api/runtime/client/status?clientId=${encodeURIComponent(clientId)}`);
-        const data = await resp.json();
-        render(data);
+    async function uploadFile(file) {
+        if (!isRunning) {
+            showToast("请先连接服务器");
+            return;
+        }
+        const form = new FormData();
+        form.append("file", file);
+        try {
+            const resp = await fetch(`/api/runtime/client/upload?clientId=${encodeURIComponent(clientId)}`, {
+                method: "POST",
+                body: form
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            showToast(file.type.startsWith("image/") ? "图片已发送" : "文件已发送");
+            await fetchStatus(true);
+        } catch (e) {
+            showToast("上传失败: " + e.message);
+        }
+    }
+
+    function pickImage() {
+        document.getElementById("imageInput").click();
+    }
+
+    function pickFile() {
+        document.getElementById("fileInput").click();
+    }
+
+    function showPreview(file) {
+        pendingFile = file;
+        const bar = document.getElementById("previewBar");
+        const img = document.getElementById("previewImg");
+        document.getElementById("previewName").textContent = file.name;
+        document.getElementById("previewSize").textContent = formatSize(file.size);
+        bar.classList.add("show");
+        if (file.type.startsWith("image/")) {
+            img.style.display = "block";
+            img.src = URL.createObjectURL(file);
+        } else {
+            img.style.display = "none";
+            img.src = "";
+        }
+    }
+
+    function clearPreview() {
+        pendingFile = null;
+        document.getElementById("previewBar").classList.remove("show");
+        document.getElementById("imageInput").value = "";
+        document.getElementById("fileInput").value = "";
+    }
+
+    document.getElementById("imageInput").addEventListener("change", e => {
+        const f = e.target.files[0];
+        if (f) showPreview(f);
+    });
+    document.getElementById("fileInput").addEventListener("change", e => {
+        const f = e.target.files[0];
+        if (f) showPreview(f);
+    });
+
+    document.getElementById("messageInput").addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    document.getElementById("messageInput").addEventListener("input", function() {
+        this.style.height = "auto";
+        this.style.height = Math.min(this.scrollHeight, 120) + "px";
+    });
+
+    async function fetchStatus(forceMessages) {
+        try {
+            const resp = await fetch("/api/runtime/client/status?clientId=" + encodeURIComponent(clientId));
+            if (!resp.ok) return;
+            render(await resp.json(), forceMessages);
+        } catch (e) {
+            console.warn("status fetch failed", e);
+        }
     }
 
     function openNewClientWindow() {
-        const url = `/client?t=${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(`/client?t=${Date.now()}`, "_blank", "noopener,noreferrer");
     }
 
-    setInterval(fetchStatus, 1000);
-    fetchStatus();
+    setInterval(() => fetchStatus(false), 2000);
+    fetchStatus(true);
 </script>
 </body>
 </html>

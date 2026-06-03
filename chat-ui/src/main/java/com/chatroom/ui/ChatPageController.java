@@ -9,7 +9,7 @@ public class ChatPageController {
 
     @GetMapping("/")
     public String index(Model model) {
-        model.addAttribute("title", "聊天室压测可视化监控台");
+        model.addAttribute("title", "百万级数据库压测实时监控台");
         return "index";
     }
 
@@ -21,7 +21,7 @@ public class ChatPageController {
 
     @GetMapping("/client")
     public String clientPage(Model model) {
-        model.addAttribute("title", "聊天室客户端控制台");
+        model.addAttribute("title", "聊天室");
         return "client";
     }
 }

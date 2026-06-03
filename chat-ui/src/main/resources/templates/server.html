@@ -12,14 +12,30 @@
         button { border: none; color: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; margin-right: 8px; }
         .start { background: #2f86ff; }
         .stop { background: #ff617d; }
-        .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
         .metric { background: #0f1738; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
         .metric-title { color: #9db2f0; font-size: 12px; }
         .metric-value { font-size: 24px; font-weight: 700; }
-        .users { margin-top: 10px; max-height: 200px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
-        .user { font-family: Consolas, monospace; font-size: 12px; padding: 4px 0; border-bottom: 1px dashed #27356e; }
-        .logs { height: 520px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
+        .user-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+        .users { max-height: 220px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
+        .users h4 { margin: 0 0 8px; font-size: 13px; color: #9db2f0; display: flex; justify-content: space-between; }
+        .users h4 .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); }
+        .users.online h4 .badge { color: #4fdf9f; }
+        .users.offline h4 .badge { color: #8b9cd4; }
+        .user {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; padding: 6px 4px; border-bottom: 1px dashed #27356e;
+        }
+        .user:last-child { border-bottom: none; }
+        .user .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .user.online .dot { background: #4fdf9f; }
+        .user.offline .dot { background: #5a6478; }
+        .user .info { flex: 1; }
+        .user .name { font-weight: 600; }
+        .user .time { color: #7d8ec0; font-size: 10px; margin-top: 2px; }
+        .logs { height: 400px; overflow: auto; background: #0c1330; border: 1px solid #2f3f85; border-radius: 10px; padding: 10px; }
         .log { font-family: Consolas, monospace; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #27356e; }
+        .empty { color: #7d8ec0; font-size: 12px; padding: 8px 0; }
     </style>
 </head>
 <body>
@@ -27,6 +43,7 @@
     <div class="panel">
         <h2 th:text="${title}" style="margin-top:0;">聊天室服务端控制台</h2>
         <a href="/" target="_blank" rel="noopener noreferrer" style="color:#84b5ff;">返回监控主页</a>
+        <a href="/client" target="_blank" rel="noopener noreferrer" style="color:#84b5ff;margin-left:12px;">打开客户端</a>
         <div style="margin-top:10px;">
             <label>端口：<input id="port" type="number" value="9000"></label>
             <button class="start" onclick="startServer()">启动服务端</button>
@@ -35,13 +52,23 @@
         </div>
         <div class="metrics">
             <div class="metric"><div class="metric-title">在线用户</div><div id="onlineUsers" class="metric-value">0</div></div>
+            <div class="metric"><div class="metric-title">离线用户</div><div id="offlineUsers" class="metric-value">0</div></div>
             <div class="metric"><div class="metric-title">累计连接</div><div id="totalConnections" class="metric-value">0</div></div>
         </div>
     </div>
 
     <div class="panel">
-        <h3 style="margin-top:0;">在线用户列表</h3>
-        <div id="onlineUserList" class="users"></div>
+        <h3 style="margin-top:0;">用户列表</h3>
+        <div class="user-grid">
+            <div class="users online">
+                <h4>在线 <span class="badge" id="onlineBadge">0</span></h4>
+                <div id="onlineUserList"></div>
+            </div>
+            <div class="users offline">
+                <h4>离线 <span class="badge" id="offlineBadge">0</span></h4>
+                <div id="offlineUserList"></div>
+            </div>
+        </div>
     </div>
 
     <div class="panel">
@@ -50,21 +77,48 @@
     </div>
 </div>
 <script>
+    function formatTime(iso) {
+        if (!iso) return "";
+        try {
+            return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        } catch (e) { return ""; }
+    }
+
+    function renderUserBox(containerId, users, mode) {
+        const box = document.getElementById(containerId);
+        if (!users || users.length === 0) {
+            box.innerHTML = '<div class="empty">暂无' + (mode === "online" ? "在线" : "离线") + '用户</div>';
+            return;
+        }
+        box.innerHTML = users.map(u => {
+            const idText = u.id > 0 ? ('#' + u.id + ' ') : '';
+            const timeLabel = mode === "online"
+                ? ('活跃 ' + (formatTime(u.lastSeen) || '-'))
+                : ('离线 ' + (formatTime(u.offlineAt) || '-'));
+            return '<div class="user ' + mode + '">' +
+                '<span class="dot"></span>' +
+                '<div class="info"><div class="name">' + idText + u.name + '</div>' +
+                '<div class="time">' + timeLabel + '</div></div></div>';
+        }).join("");
+    }
+
     function render(data) {
         const status = document.getElementById("status");
-        status.innerText = data.running ? `运行中 PID=${data.pid}` : "未运行";
+        status.innerText = data.running ? ('运行中 PID=' + data.pid) : "未运行";
         status.style.color = data.running ? "#4fdf9f" : "#ff8b9f";
 
-        document.getElementById("onlineUsers").innerText = data.onlineUsers ?? 0;
+        const online = data.onlineUserList || [];
+        const offline = data.offlineUserList || [];
+        document.getElementById("onlineUsers").innerText = online.length;
+        document.getElementById("offlineUsers").innerText = offline.length;
+        document.getElementById("onlineBadge").innerText = online.length;
+        document.getElementById("offlineBadge").innerText = offline.length;
+        renderUserBox("onlineUserList", online, "online");
+        renderUserBox("offlineUserList", offline, "offline");
+
         document.getElementById("totalConnections").innerText = data.totalConnections ?? 0;
-
-        const onlineUserList = data.onlineUserList || [];
-        document.getElementById("onlineUserList").innerHTML = onlineUserList.length
-            ? onlineUserList.map(v => `<div class="user">#${v.id} ${v.name}</div>`).join("")
-            : `<div class="user">暂无在线用户</div>`;
-
         document.getElementById("logs").innerHTML = (data.logs || []).map(v =>
-            `<div class="log">[${new Date(v.time).toLocaleTimeString()}] [${v.source}] ${v.text}</div>`
+            '<div class="log">[' + new Date(v.time).toLocaleTimeString() + '] [' + v.source + '] ' + v.text + '</div>'
         ).join("");
     }
 
@@ -82,6 +136,7 @@
 
     const es = new EventSource("/api/runtime/stream");
     es.addEventListener("server", e => render(JSON.parse(e.data)));
+    fetch("/api/runtime/server/status").then(r => r.json()).then(render);
 </script>
 </body>
 </html>

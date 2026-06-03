@@ -4,8 +4,21 @@ server:
 spring:
   thymeleaf:
     cache: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 chat:
   runtime:
     workspaceRoot: ..
     exePath: ../cmake-build-release/Release/untitled18.exe
+  media:
+    uploadDir: uploads
+    maxFileSizeMb: 10
+  benchmark:
+    database: h2
+    defaultTotalMessages: 1000000
+    defaultWriterShards: 8
+    defaultBatchSize: 2000
+    sqlitePath: ../cmake-build-release/Release/data/benchmark_million.db

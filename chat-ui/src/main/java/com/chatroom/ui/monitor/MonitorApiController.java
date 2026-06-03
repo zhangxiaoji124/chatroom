@@ -33,6 +33,12 @@ public class MonitorApiController {
 
     @PostMapping("/loadtest/start")
     public Map<String, Object> start(@RequestBody Map<String, Integer> body) {
+        if (body.containsKey("totalMessages")) {
+            int total = body.getOrDefault("totalMessages", 1_000_000);
+            int shards = body.getOrDefault("writerShards", 8);
+            int batch = body.getOrDefault("batchSize", 2000);
+            return monitorService.startMillionScaleTest(total, shards, batch);
+        }
         int users = body.getOrDefault("virtualUsers", 50);
         int rate = body.getOrDefault("msgRatePerSecond", 120);
         int duration = body.getOrDefault("durationSeconds", 60);
@@ -62,7 +68,7 @@ public class MonitorApiController {
             } catch (IOException e) {
                 emitter.complete();
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 500, TimeUnit.MILLISECONDS);
         return emitter;
     }
 }

@@ -23,6 +23,7 @@
 #include <ws2tcpip.h>
 #include <libloaderapi.h>
 #include "Thread_Pools.h"
+#include "MessageStore.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -103,6 +104,8 @@ bool sendToClient(const std::shared_ptr<ChatClient>& client, const std::string& 
 }
 
 void runServer(unsigned short port);
+
+void runConcurrentServerLoadTest(const std::string& ip, unsigned short port, int clientCount, int messagesPerClient);
 
 bool pathExists(const std::filesystem::path& p) {
     std::error_code ec;
@@ -309,6 +312,13 @@ void runLoadTest() {
 void runServer(unsigned short port) {
     WinSockSession wsa;
     Thread_Pools broadcastPool(8);
+    Thread_Pools dbPool(4);
+
+    std::filesystem::path dbPath = executableDir() / "data" / "chatroom.db";
+    MessageStore messageStore(dbPath, 4);
+    if (!messageStore.isReady()) {
+        std::cerr << "Warning: database unavailable, chat will run without persistence." << std::endl;
+    }
 
     SOCKET listenFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenFd == INVALID_SOCKET) {
@@ -334,6 +344,25 @@ void runServer(unsigned short port) {
     std::vector<std::shared_ptr<ChatClient>> clients;
     std::vector<std::thread> recvThreads;
     std::atomic<int> clientIdGen{1};
+
+    auto persistMessage = [&](int senderId, const std::string& senderName, const std::string& text,
+                              const std::string& msgType) {
+        if (!messageStore.isReady()) {
+            return;
+        }
+        dbPool.submit([&, senderId, senderName, text, msgType]() {
+            messageStore.saveMessage(senderId, senderName, text, msgType);
+        });
+    };
+
+    auto persistEvent = [&](const std::string& eventType, const std::string& detail) {
+        if (!messageStore.isReady()) {
+            return;
+        }
+        dbPool.submit([&, eventType, detail]() {
+            messageStore.saveEvent(eventType, detail);
+        });
+    };
 
     auto broadcastMessage = [&](int senderId, const std::string& text) {
         broadcastPool.submit([&, senderId, text]() {
@@ -421,12 +450,14 @@ void runServer(unsigned short port) {
 
             std::cout << client->name << "(#" << client->id << ") joined." << std::endl;
             sendToClient(client, "Welcome! your name is " + client->name + " (#" + std::to_string(client->id) + ")");
-            sendToClient(client, "Commands: /name <newName>, /list, /msg <name|id> <text>, quit, /shutdown");
+            sendToClient(client, "Commands: /name <newName>, /list, /msg <name|id> <text>, /dbstats, quit, /shutdown");
+            sendToClient(client, "Media: send @@MEDIA|image|name|url|size@@ or @@MEDIA|file|...@@ (from web client)");
             broadcastMessage(0, "[system] " + client->name + " joined.");
+            persistEvent("join", client->name + "(#" + std::to_string(client->id) + ")");
             sendUserList(client);
 
             recvThreads.emplace_back([&, client]() {
-                char buf[1024];
+                char buf[8192];
                 std::string pending;
                 while (running.load()) {
                     int n = recv(client->socketFd, buf, sizeof(buf) - 1, 0);
@@ -455,6 +486,10 @@ void runServer(unsigned short port) {
                         }
                         if (line == "/list") {
                             sendUserList(client);
+                            continue;
+                        }
+                        if (line == "/dbstats") {
+                            sendToClient(client, "[system] " + messageStore.statsText());
                             continue;
                         }
                         if (line.rfind("/name ", 0) == 0) {
@@ -496,8 +531,18 @@ void runServer(unsigned short port) {
                             continue;
                         }
 
+                        std::string msgType = "broadcast";
+                        if (line.rfind("@@MEDIA|", 0) == 0) {
+                            std::size_t p1 = line.find('|', 8);
+                            std::size_t p2 = (p1 == std::string::npos) ? std::string::npos : line.find('|', p1 + 1);
+                            if (p1 != std::string::npos && p2 != std::string::npos && p2 > p1 + 1) {
+                                msgType = line.substr(p1 + 1, p2 - p1 - 1);
+                            }
+                        }
+
                         std::string msg = "[" + client->name + "] " + line;
                         std::cout << msg << std::endl;
+                        persistMessage(client->id, client->name, line, msgType);
                         broadcastMessage(client->id, msg);
                     }
                 }
@@ -511,6 +556,7 @@ void runServer(unsigned short port) {
                         clients.end());
                 }
                 broadcastMessage(0, "[system] " + client->name + " left.");
+                persistEvent("leave", client->name + "(#" + std::to_string(client->id) + ")");
                 std::cout << client->name << "(#" << client->id << ") disconnected." << std::endl;
             });
         }
@@ -540,6 +586,92 @@ void runServer(unsigned short port) {
             t.join();
         }
     }
+
+    dbPool.shutdown();
+    if (messageStore.isReady()) {
+        std::cout << messageStore.statsText() << std::endl;
+    }
+}
+
+void runConcurrentServerLoadTest(const std::string& ip, unsigned short port, int clientCount, int messagesPerClient) {
+    WinSockSession wsa;
+    Thread_Pools pool(static_cast<size_t>(std::min(clientCount, 64)));
+
+    std::atomic<int> successCount{0};
+    std::atomic<int> failCount{0};
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(static_cast<size_t>(clientCount));
+
+    auto begin = std::chrono::steady_clock::now();
+    std::cout << "\n=== TCP + DB Concurrent Load Test ===\n";
+    std::cout << "Target: " << ip << ":" << port
+              << ", clients=" << clientCount
+              << ", messages/client=" << messagesPerClient << "\n";
+
+    for (int clientIdx = 0; clientIdx < clientCount; ++clientIdx) {
+        tasks.emplace_back(pool.submit([&, clientIdx]() {
+            SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (sock == INVALID_SOCKET) {
+                failCount.fetch_add(messagesPerClient);
+                return;
+            }
+
+            sockaddr_in serverAddr{};
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(port);
+            if (inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr) != 1 ||
+                connect(sock, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+                closesocket(sock);
+                failCount.fetch_add(messagesPerClient);
+                return;
+            }
+
+            char buf[2048];
+            auto drainWelcome = [&]() {
+                fd_set readSet;
+                timeval tv{};
+                tv.tv_sec = 0;
+                tv.tv_usec = 200000;
+                FD_ZERO(&readSet);
+                FD_SET(sock, &readSet);
+                if (select(0, &readSet, nullptr, nullptr, &tv) > 0) {
+                    recv(sock, buf, sizeof(buf) - 1, 0);
+                }
+            };
+            drainWelcome();
+
+            for (int msgIdx = 0; msgIdx < messagesPerClient; ++msgIdx) {
+                std::string line = "loadtest c" + std::to_string(clientIdx) + " m" + std::to_string(msgIdx);
+                if (!sendLine(sock, line)) {
+                    failCount.fetch_add(1);
+                    continue;
+                }
+                successCount.fetch_add(1);
+            }
+
+            sendLine(sock, "quit");
+            shutdown(sock, SD_BOTH);
+            closesocket(sock);
+        }));
+    }
+
+    for (auto& task : tasks) {
+        task.get();
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+
+    int success = successCount.load();
+    int failed = failCount.load();
+    int total = success + failed;
+    double qps = elapsedMs > 0 ? (static_cast<double>(success) * 1000.0 / static_cast<double>(elapsedMs)) : 0.0;
+
+    std::cout << "\n=== Load Test Result ===\n";
+    std::cout << "Elapsed: " << elapsedMs << " ms\n";
+    std::cout << "Messages sent: " << success << " / " << total << "\n";
+    std::cout << "Failed: " << failed << "\n";
+    std::cout << "Throughput: " << std::fixed << std::setprecision(2) << qps << " msg/s\n";
+    std::cout << "Tip: check server console for [db] stats or send /dbstats in a client.\n";
 }
 
 void runClient(const std::string& ip, unsigned short port) {
@@ -606,6 +738,7 @@ int main() {
                       << "2) TCP server\n"
                       << "3) TCP client\n"
                       << "4) One-click start (UI + server)\n"
+                      << "5) TCP concurrent load test (requires running server)\n"
                       << "0) Exit program\n"
                       << "Input: ";
 
@@ -646,6 +779,36 @@ int main() {
                 runClient(ip, port);
             } else if (mode == 4) {
                 runAllInOne();
+            } else if (mode == 5) {
+                std::string ip = "127.0.0.1";
+                unsigned short port = 9000;
+                int clientCount = 50;
+                int messagesPerClient = 20;
+                std::cout << "Server IP (default 127.0.0.1): ";
+                std::string ipText;
+                std::getline(std::cin, ipText);
+                if (!ipText.empty()) {
+                    ip = ipText;
+                }
+                std::cout << "Server port (default 9000): ";
+                std::string portText;
+                std::getline(std::cin, portText);
+                if (!portText.empty()) {
+                    port = static_cast<unsigned short>(std::stoi(portText));
+                }
+                std::cout << "Concurrent clients (default 50): ";
+                std::string clientText;
+                std::getline(std::cin, clientText);
+                if (!clientText.empty()) {
+                    clientCount = std::stoi(clientText);
+                }
+                std::cout << "Messages per client (default 20): ";
+                std::string msgText;
+                std::getline(std::cin, msgText);
+                if (!msgText.empty()) {
+                    messagesPerClient = std::stoi(msgText);
+                }
+                runConcurrentServerLoadTest(ip, port, clientCount, messagesPerClient);
             } else {
                 std::cout << "Unknown mode." << std::endl;
             }
