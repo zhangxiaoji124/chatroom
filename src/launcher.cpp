@@ -147,20 +147,30 @@ std::wstring find_browser_app_executable() {
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     const std::wstring module_dir = get_module_directory();
 
-    if (!is_server_online(8080)) {
+    int target_port = 8080;
+    if (is_server_online(8000)) {
+        target_port = 8000;
+    } else if (is_server_online(8080)) {
+        target_port = 8080;
+    } else {
         start_server_process(module_dir);
 
         // Wait up to 3 seconds for server to come online
         for (int i = 0; i < 30; ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (is_server_online(8000)) {
+                target_port = 8000;
+                break;
+            }
             if (is_server_online(8080)) {
+                target_port = 8080;
                 break;
             }
         }
     }
 
     std::wstring browser = find_browser_app_executable();
-    const std::wstring url = L"http://localhost:8080";
+    const std::wstring url = L"http://localhost:" + std::to_wstring(target_port);
 
     if (!browser.empty()) {
         std::wstring profile_dir = module_dir + L"\\..\\data\\desktop_profile";
