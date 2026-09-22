@@ -22,6 +22,14 @@
         </div>
         <div class="header-status">
           <time id="current-time">--:--:--</time>
+          <label for="node-switch-select" class="sr-only">切换后台节点</label>
+          <select id="node-switch-select" class="interval-select node-select" title="直接切换后台管理节点">
+            <option value="">🌐 切换后台节点...</option>
+            <option value="http://127.0.0.1:8000/admin.html">网关入口 (8000)</option>
+            <option value="http://127.0.0.1:8080/admin.html">节点 1 (8080)</option>
+            <option value="http://127.0.0.1:8081/admin.html">节点 2 (8081)</option>
+            <option value="http://127.0.0.1:8082/admin.html">节点 3 (8082)</option>
+          </select>
           <span class="header-divider" aria-hidden="true"></span>
           <label for="refresh-interval-select" class="sr-only">自动刷新频率</label>
           <select id="refresh-interval-select" class="interval-select" title="自动刷新频率">
@@ -79,6 +87,12 @@
             <h2 id="cluster-title">🌐 分布式集群节点网格拓扑</h2>
           </div>
           <div class="cluster-header-right">
+            <button id="open-gateway-btn" class="quick-nav-btn" type="button" title="在新标签页打开 8000 网关客户端">
+              🔀 网关客户端 (8000)
+            </button>
+            <button id="open-dual-test-btn" class="quick-nav-btn" type="button" title="一键同时打开 8080 与 8081 两个客户端进行多节点互通测试">
+              👥 双节点对比测试
+            </button>
             <span id="cluster-mode-badge" class="count-pill">单机独立模式</span>
           </div>
         </div>
@@ -92,10 +106,11 @@
                 <th scope="col">心跳延迟</th>
                 <th scope="col">在线人数</th>
                 <th scope="col">上次保活</th>
+                <th scope="col">一键直达操作</th>
               </tr>
             </thead>
             <tbody id="cluster-nodes-body">
-              <tr class="placeholder-row"><td colspan="6">正在检测集群节点拓扑…</td></tr>
+              <tr class="placeholder-row"><td colspan="7">正在检测集群节点拓扑…</td></tr>
             </tbody>
           </table>
         </div>

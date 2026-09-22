@@ -309,10 +309,11 @@ function renderClusterNodes(clusterData) {
     }
   }
 
+  const currentPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
   const fragment = document.createDocumentFragment();
   for (const node of nodes) {
     const row = document.createElement("tr");
-    const isSelf = node.node_id === selfId;
+    const isSelf = node.node_id === selfId || String(node.port) === currentPort;
 
     const idCell = document.createElement("td");
     idCell.className = "user-name";
@@ -337,7 +338,38 @@ function renderClusterNodes(clusterData) {
     const heartbeatCell = document.createElement("td");
     heartbeatCell.textContent = node.last_heartbeat_ms ? formatDateTime(node.last_heartbeat_ms) : "--";
 
-    row.append(idCell, urlCell, statusCell, latencyCell, usersCell, heartbeatCell);
+    // 快捷直达操作列
+    const actionCell = document.createElement("td");
+    const group = document.createElement("div");
+    group.className = "action-btn-group";
+
+    const chatLink = document.createElement("a");
+    chatLink.className = "action-btn reset-btn";
+    chatLink.href = `${node.base_url}/index.html`;
+    chatLink.target = "_blank";
+    chatLink.textContent = "💬 登录聊天";
+    chatLink.title = `在新标签页打开节点 ${node.node_id} 的客户端`;
+
+    if (String(node.port) === currentPort) {
+      const activeTag = document.createElement("span");
+      activeTag.className = "status-badge";
+      activeTag.style.cssText = "background:rgba(16,185,129,0.15);color:#059669;font-size:0.75rem;padding:3px 8px;font-weight:600;";
+      activeTag.textContent = "✅ 当前后台";
+      group.append(chatLink, activeTag);
+    } else {
+      const switchBtn = document.createElement("button");
+      switchBtn.className = "action-btn";
+      switchBtn.type = "button";
+      switchBtn.textContent = "⚙️ 切至此后台";
+      switchBtn.title = `直接跳转管理节点 ${node.node_id}`;
+      switchBtn.onclick = () => {
+        window.location.href = `${node.base_url}/admin.html`;
+      };
+      group.append(chatLink, switchBtn);
+    }
+
+    actionCell.append(group);
+    row.append(idCell, urlCell, statusCell, latencyCell, usersCell, heartbeatCell, actionCell);
     fragment.append(row);
   }
 
@@ -589,10 +621,39 @@ clearFilter.addEventListener("click", () => {
   nicknameFilter.focus();
 });
 
-window.addEventListener("beforeunload", () => {
-  clearInterval(autoRefreshTimer);
-  clearInterval(clockTimer);
-});
+// 顶部节点切换下拉框
+const nodeSwitchSelect = document.querySelector("#node-switch-select");
+if (nodeSwitchSelect) {
+  const curPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
+  for (const opt of nodeSwitchSelect.options) {
+    if (opt.value && opt.value.includes(`:${curPort}/`)) {
+      opt.selected = true;
+      break;
+    }
+  }
+  nodeSwitchSelect.addEventListener("change", (e) => {
+    if (e.target.value) {
+      window.location.href = e.target.value;
+    }
+  });
+}
+
+// 快捷打开网关客户端
+const openGatewayBtn = document.querySelector("#open-gateway-btn");
+if (openGatewayBtn) {
+  openGatewayBtn.addEventListener("click", () => {
+    window.open("http://127.0.0.1:8000/index.html", "_blank");
+  });
+}
+
+// 快捷打开双节点对比测试
+const openDualTestBtn = document.querySelector("#open-dual-test-btn");
+if (openDualTestBtn) {
+  openDualTestBtn.addEventListener("click", () => {
+    window.open("http://127.0.0.1:8080/index.html", "_blank");
+    window.open("http://127.0.0.1:8081/index.html", "_blank");
+  });
+}
 
 clockTimer = setInterval(updateClockAndCountdown, 1000);
 scheduleAutoRefresh();

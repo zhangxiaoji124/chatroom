@@ -1257,6 +1257,21 @@ function handleMessage(event) {
   processPayload(payload);
 }
 
+function updateClusterNodeBadge(nodeId, port) {
+  const badge = document.querySelector("#cluster-node-badge");
+  if (!badge) return;
+  if (nodeId) {
+    badge.textContent = `🌐 ${nodeId}`;
+    badge.title = `当前连接的分布式集群节点: ${nodeId}${port ? ` (端口 ${port})` : ""}\n点击查看节点详情`;
+    badge.hidden = false;
+    badge.onclick = () => {
+      alert(`【分布式集群节点】\n• 当前节点 ID: ${nodeId}\n• 端口: ${port || "默认"}\n• 架构: 分布式网格 (Distributed Mesh)\n\n所有节点间公聊、私聊与撤回均已全网实时打通！`);
+    };
+  } else {
+    badge.hidden = true;
+  }
+}
+
 function processPayload(payload) {
   if (payload.type === "login_success") {
     if (payload.token) {
@@ -1266,6 +1281,9 @@ function processPayload(payload) {
     if (payload.nickname) {
       nickname = payload.nickname;
       localStorage.setItem("chatroom_nickname", nickname);
+    }
+    if (payload.node_id) {
+      updateClusterNodeBadge(payload.node_id, payload.port);
     }
     loginPending = false;
     hasJoined = true;

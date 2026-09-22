@@ -383,6 +383,22 @@ textarea::placeholder { color: var(--text-faint); }
   font-weight: 800;
 }
 
+.node-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--primary, #5b6ff2);
+  background: rgba(91, 111, 242, 0.12);
+  border: 1px solid rgba(91, 111, 242, 0.25);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+.node-badge:hover {
+  background: #5b6ff2;
+  color: #ffffff;
+}
+
 .room-meta {
   gap: 7px;
   color: var(--text-muted);

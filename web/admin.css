@@ -586,4 +586,42 @@ tbody tr:hover { background: #fafbfe; }
   font-weight: normal;
 }
 
+.node-select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+.node-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.cluster-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-nav-btn {
+  padding: 4px 11px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 550;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  transition: all 0.15s ease;
+}
+.quick-nav-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+
 

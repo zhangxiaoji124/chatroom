@@ -1428,7 +1428,9 @@ void ChatServer::setup_routes() {
                         socket.send(json{
                             {"type", "login_success"},
                             {"nickname", nickname},
-                            {"token", token}
+                            {"token", token},
+                            {"node_id", cluster_.node_id()},
+                            {"port", port_}
                         }.dump());
                         ws_.broadcast_raw(
                             json{{"type", "system"},
@@ -1517,7 +1519,9 @@ void ChatServer::setup_routes() {
                         socket.send(json{
                             {"type", "login_success"},
                             {"nickname", nickname},
-                            {"token", token}
+                            {"token", token},
+                            {"node_id", cluster_.node_id()},
+                            {"port", port_}
                         }.dump());
                         ws_.broadcast_raw(
                             json{{"type", "system"},
