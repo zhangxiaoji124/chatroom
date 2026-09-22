@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Chatroom 架构图</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background-color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+    color: #1e293b;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 1520px;
+    height: 800px;
+    padding: 20px 24px;
+    overflow: hidden;
+  }
+
+  .canvas {
+    position: relative;
+    width: 1472px;
+    height: 760px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* 顶部 5 列容器布局 */
+  .columns-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    height: 660px;
+    width: 100%;
+    z-index: 2;
+  }
+
+  /* 每一列 */
+  .column {
+    position: relative;
+    width: 254px;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 16px 14px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* 主题色区分 */
+  .col-1 { border: 2px solid #2563eb; }
+  .col-2 { border: 2px solid #1d4ed8; }
+  .col-3 { border: 2px solid #ea580c; }
+  .col-4 { border: 2px solid #16a34a; }
+  .col-5 { border: 2px solid #0284c7; }
+
+  /* 列头部 */
+  .col-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px dashed #e2e8f0;
+  }
+  .badge-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .col-1 .badge-number { background: #2563eb; }
+  .col-2 .badge-number { background: #1d4ed8; }
+  .col-3 .badge-number { background: #ea580c; }
+  .col-4 .badge-number { background: #16a34a; }
+  .col-5 .badge-number { background: #0284c7; }
+
+  .col-title {
+    font-size: 17.5px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+  }
+
+  /* 列内卡片区 */
+  .cards-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* 子模块卡片 */
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 10px;
+    border-radius: 12px;
+    background: #ffffff;
+  }
+
+  .col-1 .card { border: 1.5px solid #bfdbfe; background: #f8faff; }
+  .col-2 .card { border: 1.5px solid #c7d2fe; background: #fbfbfe; }
+  .col-3 .card { border: 1.5px solid #fed7aa; background: #fffaf5; }
+  .col-4 .card { border: 1.5px solid #bbf7d0; background: #f7fee7; }
+  .col-5 .card { border: 1.5px solid #bae6fd; background: #f0f9ff; }
+
+  .card-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .card-texts {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+  .card-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  .card-desc {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+
+  /* 列3特有的处理链布局 */
+  .col-3-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+  .col-3-card {
+    padding: 18px 12px;
+  }
+  .col-3-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 4px 0;
+  }
+  .col-3-arrow svg {
+    width: 20px;
+    height: 20px;
+    fill: #ea580c;
+  }
+
+  /* 列4特有的左右分栏与绿色安全屏障 */
+  .col-4-content {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .col-4-cards {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .barrier-line-wrap {
+    width: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .barrier-line {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    width: 3.5px;
+    background: #16a34a;
+    border-radius: 2px;
+  }
+  .barrier-shield {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    background: #16a34a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 3px #ffffff, 0 2px 6px rgba(0,0,0,0.15);
+    z-index: 3;
+  }
+  .barrier-shield svg {
+    width: 16px;
+    height: 16px;
+    fill: #ffffff;
+  }
+
+  /* 底层 SVG 连线（用于绘制列间箭头与红色虚线流） */
+  .overlay-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* 底部图例栏 */
+  .legend-bar {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #334155;
+  }
+  .legend-line {
+    display: flex;
+    align-items: center;
+    width: 54px;
+    height: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="canvas">
+
+  <!-- SVG 覆盖层：精确匹配原图的连线风格 -->
+  <svg class="overlay-svg" viewBox="0 0 1472 760">
+    <defs>
+      <!-- 蓝色实线箭头标记 -->
+      <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+      </marker>
+      <!-- 红色虚线箭头标记 -->
+      <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#dc2626" />
+      </marker>
+    </defs>
+
+    <!-- 列间主数据流蓝色箭头 (位于各个列的正中间间隙) -->
+    <!-- Col 1: 0..254, Col 2: 304..558, Col 3: 608..862, Col 4: 912..1166, Col 5: 1216..1470 -->
+    <line x1="262" y1="315" x2="296" y2="315" stroke="#2563eb" stroke-width="4" marker-end="url(#arrow-blue)" />
+    <line x1="566" y1="315" x2="600" y2="315" stroke="#2563eb" stroke-width="4" marker-end="url(#arrow-blue)" />
+    <line x1="870" y1="315" x2="904" y2="315" stroke="#2563eb" stroke-width="4" marker-end="url(#arrow-blue)" />
+    <line x1="1174" y1="315" x2="1208" y2="315" stroke="#2563eb" stroke-width="4" marker-end="url(#arrow-blue)" />
+
+    <!-- 红色虚线链路系统（完全对齐参考图风格：从第1列卡片引出，绕外侧与底部，三路向上分支指向关键环节） -->
+    <!-- 起始红点与出线 -->
+    <circle cx="20" cy="115" r="4" fill="#dc2626" />
+    <path d="M 20 115 L -10 115 L -10 680 L 1025 680"
+          fill="none" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4" />
+
+    <!-- 分支 1：向上输入 第2列 RESTful 媒体与扩展接口 -->
+    <line x1="431" y1="680" x2="431" y2="628" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrow-red)" />
+
+    <!-- 分支 2：向上输入 第3列 消息分流与调度中枢 -->
+    <line x1="735" y1="680" x2="735" y2="628" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrow-red)" />
+
+    <!-- 分支 3：向上输入 第4列 频控与能力门控屏障 -->
+    <line x1="1025" y1="680" x2="1025" y2="628" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrow-red)" />
+  </svg>
+
+  <!-- 5 列主体结构 -->
+  <div class="columns-wrapper">
+
+    <!-- 1. 客户端与接入层 -->
+    <div class="column col-1">
+      <div class="col-header">
+        <div class="badge-number">1</div>
+        <div class="col-title">客户端与接入层</div>
+      </div>
+      <div class="cards-container">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">Web 响应式前端</div>
+            <div class="card-desc">原生 ES6+ / app.js / 消息平滑渲染</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M7 8h10M7 12h4m-4 4h7"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">桌面独立启动器</div>
+            <div class="card-desc">launcher.exe / 系统托盘与极速启动</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">语音录制与播放</div>
+            <div class="card-desc">WebM/Ogg 采集与音频播放组件</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+              <line x1="9" y1="9" x2="9.01" y2="9"></line>
+              <line x1="15" y1="9" x2="15.01" y2="9"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">富交互体验套件</div>
+            <div class="card-desc">快捷表情 / @提及提醒 / 暗黑主题</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 通信网关与协议 -->
+    <div class="column col-2">
+      <div class="col-header">
+        <div class="badge-number">2</div>
+        <div class="col-title">通信网关与协议</div>
+      </div>
+      <div class="cards-container">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">C++20 高并发内核</div>
+            <div class="card-desc">cpp-httplib 0.18.1 / 多线程事件驱动</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <path d="M9 12l2 2 4-4"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">WebSocket 网关</div>
+            <div class="card-desc">/ws 协议握手 / 帧编解码与连接保活</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+              <line x1="14" y1="4" x2="10" y2="20"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">JSON 协议分发器</div>
+            <div class="card-desc">nlohmann-json 统一数据包解析路由</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">RESTful 服务接口</div>
+            <div class="card-desc">/api/history, /api/online, 状态接口</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 核心会话与路由 (纵向三段式处理流水线) -->
+    <div class="column col-3">
+      <div class="col-header">
+        <div class="badge-number">3</div>
+        <div class="col-title">核心会话与路由</div>
+      </div>
+      <div class="col-3-container">
+        <!-- Stage 1 -->
+        <div class="card col-3-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">在线用户与鉴权</div>
+            <div class="card-desc">UserManager 昵称去重 / 状态映射</div>
+          </div>
+        </div>
+
+        <div class="col-3-arrow">
+          <svg viewBox="0 0 24 24"><polygon points="12 20 5 11 19 11"></polygon></svg>
+        </div>
+
+        <!-- Stage 2 -->
+        <div class="card col-3-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">消息分流与调度</div>
+            <div class="card-desc">WsHandler 消息解析 / 权限判定与派发</div>
+          </div>
+        </div>
+
+        <div class="col-3-arrow">
+          <svg viewBox="0 0 24 24"><polygon points="12 20 5 11 19 11"></polygon></svg>
+        </div>
+
+        <!-- Stage 3 -->
+        <div class="card col-3-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">通道隔离与投递</div>
+            <div class="card-desc">全局广播扇出 / P2P私聊 / 动态群组</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 智能AI与媒体处理 -->
+    <div class="column col-4">
+      <div class="col-header">
+        <div class="badge-number">4</div>
+        <div class="col-title">智能AI与媒体处理</div>
+      </div>
+      <div class="col-4-content">
+        <div class="col-4-cards">
+          <div class="card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+                <circle cx="12" cy="5" r="2"></circle>
+                <path d="M12 7v4M8 16h.01M16 16h.01"></path>
+              </svg>
+            </div>
+            <div class="card-texts">
+              <div class="card-title">DeepSeek AI 引擎</div>
+              <div class="card-desc">AiClient 异步非阻塞推理线程池</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="22" y1="12" x2="18" y2="12"></line>
+                <line x1="6" y1="12" x2="2" y2="12"></line>
+                <line x1="12" y1="6" x2="12" y2="2"></line>
+                <line x1="12" y1="22" x2="12" y2="18"></line>
+              </svg>
+            </div>
+            <div class="card-texts">
+              <div class="card-title">@AI 意图解析器</div>
+              <div class="card-desc">@机器人 智能过滤与上下文构建</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+            </div>
+            <div class="card-texts">
+              <div class="card-title">多媒体处理管线</div>
+              <div class="card-desc">二进制校验 / UUID落盘与转存</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <div class="card-texts">
+              <div class="card-title">频控与能力门控</div>
+              <div class="card-desc">状态守卫 / 文本长度与频控保护</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 纵向绿色安全隔离屏障 -->
+        <div class="barrier-line-wrap">
+          <div class="barrier-line"></div>
+          <div class="barrier-shield">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 数据存储与审计监控 -->
+    <div class="column col-5">
+      <div class="col-header">
+        <div class="badge-number">5</div>
+        <div class="col-title">持久存储与审计</div>
+      </div>
+      <div class="cards-container">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">JSONL 结构化日志</div>
+            <div class="card-desc">data/messages.jsonl 顺序追加写入</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">媒体资产持久仓储</div>
+            <div class="card-desc">data/audio/, data/images/ 文件持久化</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+              <path d="M7 10l3 3 7-7"></path>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">Admin 管理控制台</div>
+            <div class="card-desc">admin.html 在线监控与系统仪表盘</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+          <div class="card-texts">
+            <div class="card-title">吞吐统计与追溯</div>
+            <div class="card-desc">/api/stats 吞吐指标与历史记录审计</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 底部图例说明栏（与参考图保持完全一致的规格） -->
+  <div class="legend-bar">
+    <div class="legend-item">
+      <div class="legend-line">
+        <svg viewBox="0 0 54 16" width="54" height="16">
+          <line x1="2" y1="8" x2="44" y2="8" stroke="#2563eb" stroke-width="3.5" />
+          <polygon points="44 4 52 8 44 12" fill="#2563eb" />
+        </svg>
+      </div>
+      <span>数据流（受控主干链路 / WebSocket & HTTP 双向交互）</span>
+    </div>
+
+    <div class="legend-item">
+      <div class="legend-line">
+        <svg viewBox="0 0 54 16" width="54" height="16">
+          <line x1="2" y1="8" x2="44" y2="8" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4" />
+          <polygon points="44 4 52 8 44 12" fill="#dc2626" />
+        </svg>
+      </div>
+      <span>异步扩展与能力直传（红色虚线）</span>
+    </div>
+
+    <div class="legend-item">
+      <div class="legend-line">
+        <svg viewBox="0 0 54 16" width="54" height="16">
+          <line x1="2" y1="8" x2="52" y2="8" stroke="#16a34a" stroke-width="3.5" />
+          <circle cx="27" cy="8" r="5" fill="#16a34a" />
+        </svg>
+      </div>
+      <span>能力门控与安全隔离屏障（绿色实线）</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

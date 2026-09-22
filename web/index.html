@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f6fb" />
+    <meta name="description" content="一个轻量、实时、无需安装的在线聊天室。" />
+    <title>Chatroom · 实时聊天室</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="style.css?v=2.2" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="login-view" class="login-view" aria-labelledby="login-title">
+        <div class="login-card">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <p class="eyebrow">CHATROOM DESKTOP</p>
+          <h1 id="login-title">和大家聊点什么</h1>
+          <p class="login-copy">取一个昵称，即刻加入实时对话。</p>
+
+          <div class="auth-tabs" role="tablist">
+            <button type="button" class="auth-tab active" id="tab-login" role="tab" aria-selected="true">账号登录</button>
+            <button type="button" class="auth-tab" id="tab-register" role="tab" aria-selected="false">注册账号</button>
+            <button type="button" class="auth-tab" id="tab-guest" role="tab" aria-selected="false">游客体验</button>
+          </div>
+
+          <form id="login-form" class="login-form" novalidate>
+            <label for="nickname-input" id="nickname-label">用户名 / 昵称</label>
+            <div class="field-wrap">
+              <input
+                id="nickname-input"
+                name="nickname"
+                type="text"
+                maxlength="24"
+                autocomplete="username"
+                placeholder="例如：张三"
+                aria-describedby="login-error"
+                autofocus
+              />
+            </div>
+
+            <div id="password-group" class="field-group">
+              <div class="field-label-row">
+                <label for="password-input">密码</label>
+                <button type="button" id="forgot-password-link" class="forgot-link">忘记密码？</button>
+              </div>
+              <div class="field-wrap">
+                <input
+                  id="password-input"
+                  name="password"
+                  type="password"
+                  maxlength="64"
+                  autocomplete="current-password"
+                  placeholder="请输入密码（至少3位）"
+                />
+              </div>
+            </div>
+
+            <p id="login-error" class="form-error" role="alert" aria-live="polite"></p>
+            <button id="login-button" class="primary-button" type="submit">
+              <span id="login-button-text">进入聊天室</span>
+              <span class="button-arrow" aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <p class="privacy-note"><span aria-hidden="true">●</span> 采用加盐哈希与Token持久会话 · 支持桌面离线恢复</p>
+        </div>
+      </section>
+
+      <section id="chat-view" class="chat-view" aria-label="聊天室" hidden>
+        <header class="chat-header">
+          <div class="chat-identity">
+            <div class="room-avatar" aria-hidden="true">C</div>
+            <div class="room-heading">
+              <div class="title-line">
+                <h1>Chatroom</h1>
+                <span class="live-badge">实时</span>
+              </div>
+              <div class="room-meta">
+                <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+                <span id="online-count">正在获取在线人数…</span>
+              </div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button
+              id="pwa-install-button"
+              class="header-btn pwa-install-btn"
+              type="button"
+              hidden
+              title="安装为独立桌面应用"
+            >
+              <span aria-hidden="true">📥</span> 桌面端
+            </button>
+            <button
+              id="notification-toggle"
+              class="sound-toggle notification-toggle"
+              type="button"
+              aria-label="切换系统桌面通知"
+              title="系统通知：点击开启"
+            >
+              <span aria-hidden="true">🔔</span>
+            </button>
+            <button
+              id="sound-toggle"
+              class="sound-toggle"
+              type="button"
+              aria-label="切换提示音"
+              title="提示音：已开启"
+            >
+              <span aria-hidden="true">🔊</span>
+            </button>
+            <button
+              id="theme-toggle"
+              class="theme-toggle"
+              type="button"
+              aria-label="切换到暗黑主题"
+              title="切换到暗黑主题"
+            >
+              <span aria-hidden="true">🌙</span>
+            </button>
+            <button
+              id="search-toggle"
+              class="header-btn search-toggle-btn"
+              type="button"
+              aria-label="检索历史消息"
+              title="检索历史消息 (Ctrl+F)"
+            >
+              <span aria-hidden="true">🔍</span> 搜索
+            </button>
+            <a class="admin-link" href="admin.html" title="打开消息管理后台">管理后台</a>
+            <div id="current-user" class="current-user" title="当前昵称"></div>
+            <button id="logout-button" class="header-btn logout-btn" type="button" title="退出当前登录">退出</button>
+          </div>
+        </header>
+
+        <div id="connection-banner" class="connection-banner" role="status" aria-live="polite" hidden>
+          <span class="banner-spinner" aria-hidden="true"></span>
+          <span id="connection-message">连接已断开，正在重连…</span>
+          <button id="retry-button" type="button" hidden>立即重试</button>
+        </div>
+
+        <section class="channel-area" aria-label="聊天频道">
+          <div class="channel-bar">
+            <div class="channel-status">
+              <span class="channel-label">当前频道</span>
+              <strong id="current-channel">全局聊天</strong>
+            </div>
+            <div class="channel-actions">
+              <button id="global-channel-button" class="global-channel-button" type="button" hidden>
+                ← 回到全局
+              </button>
+              <button
+                id="group-toggle-button"
+                class="group-toggle-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="group-panel"
+              >
+                群组
+                <span id="group-count" aria-label="已加入群组数量">0</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="group-panel" class="group-panel" hidden>
+            <form id="group-form" class="group-form" novalidate>
+              <label class="sr-only" for="group-name-input">群名</label>
+              <input
+                id="group-name-input"
+                name="group-name"
+                type="text"
+                maxlength="64"
+                autocomplete="off"
+                placeholder="输入群名"
+                aria-describedby="group-feedback"
+              />
+              <button id="join-group-button" type="submit">加入/创建群</button>
+            </form>
+            <p id="group-feedback" class="group-feedback" role="status" aria-live="polite"></p>
+            <div class="joined-groups-heading">
+              <span>我所在的群</span>
+              <small>点击群名进入群聊</small>
+            </div>
+            <div id="joined-groups" class="joined-groups" aria-live="polite">
+              <span class="no-groups">尚未加入群组</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="chat-body">
+          <aside id="user-list" class="user-list" aria-label="在线用户">
+            <div class="user-list-header">
+              <span>在线用户</span>
+            </div>
+            <button id="user-item-global" class="user-item active" type="button">
+              <span class="user-status-dot online"></span>
+              <span class="user-item-name">🌐 全局频道</span>
+            </button>
+            <div id="user-list-container" class="user-list-container">
+              <!-- 动态在线用户列表 -->
+            </div>
+          </aside>
+
+          <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions">
+            <div id="empty-state" class="empty-state">
+              <div class="empty-icon" aria-hidden="true">✦</div>
+              <p>已进入聊天室</p>
+              <span>说声你好，开启今天的对话吧</span>
+            </div>
+            <div id="typing-indicator" class="typing-indicator" hidden aria-live="polite">
+              <div class="typing-dots" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <span id="typing-text" class="typing-text">正在输入...</span>
+            </div>
+          </div>
+
+          <!-- 消息全文搜索抽屉 -->
+          <aside id="search-drawer" class="search-drawer" hidden aria-label="消息全文搜索">
+            <div class="search-drawer-header">
+              <div class="search-drawer-title">
+                <span aria-hidden="true">🔍</span>
+                <span>消息全文检索</span>
+              </div>
+              <button id="close-search-drawer" class="close-drawer-btn" type="button" aria-label="关闭搜索" title="关闭 (Esc)">✕</button>
+            </div>
+            <div class="search-drawer-bar">
+              <input id="search-input" type="search" placeholder="输入搜索词 (回车检索)..." autocomplete="off" />
+              <button id="search-action-btn" type="button">搜索</button>
+            </div>
+            <div id="search-results-list" class="search-results-list">
+              <div class="search-placeholder">输入关键词检索全部公开群聊与消息历史</div>
+            </div>
+          </aside>
+        </div>
+
+        <form id="message-form" class="composer" novalidate>
+          <div id="reply-banner" class="reply-banner" hidden>
+            <div class="reply-banner-content">
+              <span class="reply-banner-icon" aria-hidden="true">↩</span>
+              <span class="reply-banner-label">回复</span>
+              <strong id="reply-to-user"></strong>
+              <span class="reply-banner-sep">:</span>
+              <span id="reply-to-text" class="reply-banner-text"></span>
+            </div>
+            <button id="cancel-reply-button" class="cancel-reply-button" type="button" aria-label="取消回复" title="取消回复">✕</button>
+          </div>
+
+          <label class="sr-only" for="message-input">输入消息</label>
+          <p id="voice-feedback" class="voice-feedback" role="status" aria-live="polite" hidden></p>
+          <button
+            id="voice-button"
+            class="voice-button"
+            type="button"
+            aria-label="开始录音"
+            aria-pressed="false"
+          >
+            🎤 语音
+          </button>
+          <button
+            id="image-button"
+            class="image-button"
+            type="button"
+            aria-label="发送图片"
+            title="发送图片 (支持拖拽或 Ctrl+V 直接粘贴图片)"
+          >
+            🖼️ 图片
+          </button>
+          <input id="image-file-input" type="file" accept="image/*" style="display: none;" />
+          <div class="sticker-wrap">
+            <button
+              id="sticker-button"
+              class="sticker-button"
+              type="button"
+              aria-label="打开表情包"
+              aria-expanded="false"
+              aria-controls="sticker-panel"
+            >
+              😊 表情
+            </button>
+            <div id="sticker-panel" class="sticker-panel" role="menu" aria-label="选择表情包" hidden></div>
+          </div>
+          <div class="composer-field">
+            <textarea
+              id="message-input"
+              name="message"
+              rows="1"
+              maxlength="1000"
+              autocomplete="off"
+              enterkeyhint="send"
+              placeholder="输入消息… (支持 Markdown / 代码块 / 粘贴图片)"
+            ></textarea>
+            <span class="composer-hint" aria-hidden="true">Enter 发送 · Shift+Enter 换行</span>
+          </div>
+          <button id="send-button" class="send-button" type="submit" aria-label="发送消息" disabled>
+            <span>发送</span>
+            <span aria-hidden="true">↑</span>
+          </button>
+        </form>
+      </section>
+
+      <div id="image-lightbox" class="image-lightbox" hidden role="dialog" aria-modal="true" aria-label="图片全屏预览">
+        <div class="lightbox-backdrop"></div>
+        <div class="lightbox-dialog">
+          <img id="lightbox-img" src="" alt="预览图片" />
+          <div class="lightbox-toolbar">
+            <a id="lightbox-download" class="lightbox-btn" href="#" target="_blank" download>⬇ 原图下载</a>
+            <button id="lightbox-close" class="lightbox-btn" type="button">✕ 关闭</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 注册成功安全恢复码弹窗 -->
+      <div id="recovery-key-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="recovery-modal-title">
+        <div class="modal-card">
+          <div class="modal-header">
+            <span class="modal-icon">🔐</span>
+            <h3 id="recovery-modal-title">请妥善保存您的密保恢复码</h3>
+          </div>
+          <p class="modal-desc">
+            账号已注册成功！当您<strong>忘记密码</strong>时，可凭借此唯一密保恢复码随时自主重置密码：
+          </p>
+          <div class="recovery-key-display">
+            <code id="display-recovery-key">REC-XXXX-XXXX</code>
+            <button type="button" id="copy-recovery-key-btn" class="copy-key-btn" title="点击一键复制">📋 复制恢复码</button>
+          </div>
+          <p id="copy-recovery-feedback" class="copy-feedback" hidden>✓ 已成功复制到剪贴板！</p>
+          <div class="modal-actions">
+            <button type="button" id="close-recovery-modal-btn" class="primary-button modal-btn">我已妥善保存，进入聊天室</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 忘记密码自主重置弹窗 -->
+      <div id="reset-password-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+        <div class="modal-card">
+          <div class="modal-header">
+            <span class="modal-icon">🔑</span>
+            <h3 id="reset-modal-title">凭密保恢复码重置密码</h3>
+          </div>
+          <p class="modal-desc">
+            请输入您的用户名、注册时获得的密保恢复码以及新密码：
+          </p>
+          <form id="reset-password-form" class="modal-form" novalidate>
+            <div class="modal-field-group">
+              <label for="reset-username-input">用户名</label>
+              <input id="reset-username-input" type="text" placeholder="例如：极客小明" autocomplete="username" required />
+            </div>
+            <div class="modal-field-group">
+              <label for="reset-key-input">密保恢复码</label>
+              <input id="reset-key-input" type="text" placeholder="例如：REC-78A9-4B2E" autocomplete="off" required />
+            </div>
+            <div class="modal-field-group">
+              <label for="reset-newpass-input">设置新密码</label>
+              <input id="reset-newpass-input" type="password" placeholder="请输入新密码（至少3位）" autocomplete="new-password" required />
+            </div>
+            <p id="reset-password-error" class="form-error modal-feedback error" role="alert" hidden></p>
+            <p id="reset-password-success" class="form-success modal-feedback success" role="alert" hidden></p>
+            <div class="modal-actions">
+              <button type="button" id="cancel-reset-btn" class="secondary-button modal-btn">取消</button>
+              <button type="submit" id="submit-reset-btn" class="primary-button modal-btn">立即重置密码</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <script src="app.js?v=2.2" defer></script>
+  </body>
+</html>

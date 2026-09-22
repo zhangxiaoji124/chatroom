@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="description" content="Chatroom 消息与用户状态管理控制台。" />
+    <title>控制台 · Chatroom 管理后台</title>
+    <link rel="manifest" href="admin-manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/admin-icon-192.png" />
+    <link rel="stylesheet" href="admin.css?v=2.2" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div class="admin-brand">
+          <a class="back-link" href="index.html" title="进入聊天室客户端">💬</a>
+          <div>
+            <p class="eyebrow">CHATROOM DESKTOP CONTROL</p>
+            <h1>消息管理与控制台</h1>
+          </div>
+        </div>
+        <div class="header-status">
+          <time id="current-time">--:--:--</time>
+          <span class="header-divider" aria-hidden="true"></span>
+          <label for="refresh-interval-select" class="sr-only">自动刷新频率</label>
+          <select id="refresh-interval-select" class="interval-select" title="自动刷新频率">
+            <option value="2000">⚡ 实时 (2秒)</option>
+            <option value="5000">5 秒</option>
+            <option value="15000">15 秒</option>
+            <option value="60000">1 分钟</option>
+            <option value="1800000" selected>30 分钟</option>
+            <option value="0">手动刷新</option>
+          </select>
+          <span id="refresh-state" class="refresh-state" role="status">等待刷新</span>
+          <button id="refresh-button" class="refresh-button" type="button">
+            <span class="refresh-icon" aria-hidden="true">↻</span>
+            立即刷新
+          </button>
+        </div>
+      </header>
+
+      <section class="refresh-summary" aria-label="刷新状态">
+        <span>上次刷新：<strong id="last-refresh">尚未刷新</strong></span>
+        <span>距离下次刷新：<strong id="next-refresh">30:00</strong></span>
+        <span>刷新计数：<strong id="refresh-count">0</strong></span>
+      </section>
+
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
+
+      <!-- 1. 全员系统公告广播面板 -->
+      <section class="panel broadcast-panel" aria-labelledby="broadcast-title">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">GLOBAL ANNOUNCEMENT</p>
+            <h2 id="broadcast-title">📢 全员系统公告推送</h2>
+          </div>
+        </div>
+        <form id="broadcast-form" class="broadcast-form">
+          <input
+            id="broadcast-input"
+            type="text"
+            placeholder="输入公告内容，将实时全员推送（例如：服务器将于 10 分钟后维护）…"
+            maxlength="300"
+            required
+          />
+          <button id="broadcast-button" class="broadcast-btn" type="submit">
+            <span>📢 发送公告</span>
+          </button>
+        </form>
+        <p id="broadcast-feedback" class="feedback-msg" hidden></p>
+      </section>
+
+      <!-- 1.5 分布式集群拓扑与状态 -->
+      <section class="panel cluster-panel" aria-labelledby="cluster-title">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">DISTRIBUTED CLUSTER MESH</p>
+            <h2 id="cluster-title">🌐 分布式集群节点网格拓扑</h2>
+          </div>
+          <div class="cluster-header-right">
+            <span id="cluster-mode-badge" class="count-pill">单机独立模式</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">节点 ID</th>
+                <th scope="col">节点地址</th>
+                <th scope="col">状态</th>
+                <th scope="col">心跳延迟</th>
+                <th scope="col">在线人数</th>
+                <th scope="col">上次保活</th>
+              </tr>
+            </thead>
+            <tbody id="cluster-nodes-body">
+              <tr class="placeholder-row"><td colspan="6">正在检测集群节点拓扑…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 2. 服务器核心指标 -->
+      <section class="stats-grid" aria-label="服务器统计">
+        <article class="stat-card stat-online">
+          <div class="stat-icon" aria-hidden="true">●</div>
+          <div>
+            <p>在线用户</p>
+            <strong id="online-stat">--</strong>
+            <span>当前连接</span>
+          </div>
+        </article>
+        <article class="stat-card stat-messages">
+          <div class="stat-icon" aria-hidden="true">#</div>
+          <div>
+            <p>总消息数</p>
+            <strong id="message-stat">--</strong>
+            <span>服务器记录</span>
+          </div>
+        </article>
+        <article class="stat-card stat-uptime">
+          <div class="stat-icon" aria-hidden="true">◷</div>
+          <div>
+            <p>运行时长</p>
+            <strong id="uptime-stat">--</strong>
+            <span>服务器连续运行</span>
+          </div>
+        </article>
+      </section>
+
+      <!-- 3. 用户管理与踢人控制 -->
+      <section class="panel users-panel" aria-labelledby="users-title">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">USER STATUS</p>
+            <h2 id="users-title">在线用户管理</h2>
+          </div>
+          <span id="user-count" class="count-pill">0 位用户</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">昵称</th>
+                <th scope="col">IP 地址</th>
+                <th scope="col">上线时间</th>
+                <th scope="col">状态</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr class="placeholder-row"><td colspan="5">正在加载用户数据…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3.5 注册用户与密码重置管理 -->
+      <section class="panel accounts-panel" aria-labelledby="accounts-title">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">ACCOUNT SECURITY</p>
+            <h2 id="accounts-title">👥 注册账号与密码管理</h2>
+          </div>
+          <span id="account-count-pill" class="count-pill">0 个账号</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">用户名</th>
+                <th scope="col">注册时间</th>
+                <th scope="col">最后活跃</th>
+                <th scope="col">在线状态</th>
+                <th scope="col">密保恢复码</th>
+                <th scope="col">密码/账号操作</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-body">
+              <tr class="placeholder-row"><td colspan="6">正在加载注册账号…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. 消息记录与日志导出 -->
+      <section class="panel messages-panel" aria-labelledby="messages-title">
+        <div class="panel-header messages-heading">
+          <div>
+            <p class="section-label">MESSAGE LOG</p>
+            <h2 id="messages-title">消息审计与导出</h2>
+          </div>
+          <div class="filter-wrap">
+            <label class="sr-only" for="nickname-filter">按昵称过滤消息</label>
+            <span aria-hidden="true">⌕</span>
+            <input id="nickname-filter" type="search" autocomplete="off" placeholder="按昵称过滤" />
+            <button id="clear-filter" type="button" aria-label="清除昵称过滤" hidden>×</button>
+          </div>
+        </div>
+        <div class="message-toolbar">
+          <div class="toolbar-left">
+            <span id="message-count">已加载 0 条</span>
+            <span class="limit-note">最近 200 条消息</span>
+          </div>
+          <div class="toolbar-actions">
+            <button id="export-json-btn" class="export-btn" type="button" title="导出完整 JSON 格式记录">📥 导出 JSON</button>
+            <button id="export-csv-btn" class="export-btn" type="button" title="导出 CSV 表格格式记录">📥 导出 CSV</button>
+          </div>
+        </div>
+        <div id="admin-messages" class="admin-messages" aria-live="polite">
+          <div class="empty-list">正在加载消息数据…</div>
+        </div>
+      </section>
+
+      <footer class="admin-footer">
+        <span>Chatroom C++20 服务端控制台</span>
+        <span>支持快捷桌面运行与日志审计</span>
+      </footer>
+    </main>
+
+    <script src="admin.js?v=2.2" defer></script>
+  </body>
+</html>

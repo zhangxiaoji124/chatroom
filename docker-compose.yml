@@ -1,0 +1,20 @@
+services:
+  chatroom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatroom-production
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # 持久化挂载 SQLite 数据库 (chatroom.db)、用户账号及多媒体文件
+      - ./data:/app/data
+    environment:
+      - PORT=8080
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3

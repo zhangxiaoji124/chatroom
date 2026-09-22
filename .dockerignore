@@ -1,0 +1,9 @@
+build/
+.git/
+.gitignore
+*.exe
+*.o
+*.db-journal
+*.db-wal
+*.db-shm
+tests/
